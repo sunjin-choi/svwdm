@@ -12,6 +12,7 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(VerilatorUtils)
+include(ProjectUtils)
 
 set(VERILOG_SRC_DIR
     $ENV{VERILOG_SRC_DIR}
@@ -25,6 +26,9 @@ set(VERILOG_TEST_DIR
 set(VERILOG_SIM_DIR
     $ENV{VERILOG_SIM_DIR}
     CACHE PATH "Path to the verilog sim directory")
+set(WAVEFORM_VIEWER
+    $ENV{WAVEFORM_VIEWER}
+    CACHE STRING "Path to the waveform viewer executable")
 
 message(STATUS "Verilog source directory: ${VERILOG_SRC_DIR}")
 message(STATUS "Verilog library directory: ${VERILOG_LIB_DIR}")
@@ -38,6 +42,3 @@ define_verilator_environment()
 
 # add_subdirectory(tests)
 add_subdirectory(sim)
-
-# Optional: Add waveform viewer target
-add_gtkwave_target(wave)

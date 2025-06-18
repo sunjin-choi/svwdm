@@ -88,7 +88,7 @@ function(add_verilated_testbench name top_module cpp_main)
     TRACE)
 
   # Add run_<target> if it doesn't already exist
-  set(RUN_TARGET "run_${name}")
+  set(RUN_TARGET "run-${name}")
   if(NOT TARGET ${RUN_TARGET})
     add_custom_target(
       ${RUN_TARGET}
@@ -102,17 +102,19 @@ function(add_verilated_testbench name top_module cpp_main)
   endif()
 
   if(TESTBENCH_ADD_WAVE_TARGET)
-    set(WAVE_TARGET "wave_${name}")
+    set(WAVE_TARGET "wave-${name}")
     if(NOT TARGET ${WAVE_TARGET})
       add_custom_target(
         ${WAVE_TARGET}
         COMMAND ${CMAKE_COMMAND} -E echo_append
                 "Checking for waveform: ${WAVEFORM_FILE}... "
         COMMAND ${CMAKE_COMMAND} -E sleep 0.1
-        COMMAND
-          ${CMAKE_COMMAND} -E test -f
-          "${CMAKE_CURRENT_BINARY_DIR}/${WAVEFORM_FILE}" || ${CMAKE_COMMAND} -E
-          echo "Waveform not found: ${WAVEFORM_FILE}" && exit 1
+        # COMMAND
+        # ${CMAKE_COMMAND} -E test -f
+        # "${CMAKE_CURRENT_BINARY_DIR}/${WAVEFORM_FILE}" || ${CMAKE_COMMAND} -E
+        # echo
+        # "Waveform not found: ${CMAKE_CURRENT_BINARY_DIR}/${WAVEFORM_FILE}" &&
+        # exit 1
         COMMAND ${WAVEFORM_VIEWER}
                 "${CMAKE_CURRENT_BINARY_DIR}/${WAVEFORM_FILE}"
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}

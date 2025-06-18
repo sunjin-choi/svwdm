@@ -12,6 +12,5 @@ add_verilated_testbench(
   # INCLUDE_DIRS "${VERILOG_SIM_DIR}/phase_tracking/sw/include"
   EXTRA_SRC
   ${SIM_SOURCES}
-  ADD_WAVE_TARGET
   PREFIX
   Vsim)

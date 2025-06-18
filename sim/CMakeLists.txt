@@ -1,2 +1,1 @@
-add_subdirectory(hello_world)
-add_subdirectory(laser_to_pd)
+add_subdirectories_all(${CMAKE_CURRENT_SOURCE_DIR})
