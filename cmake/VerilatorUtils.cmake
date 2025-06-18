@@ -62,17 +62,8 @@ function(define_verilator_environment)
       PARENT_SCOPE)
 endfunction()
 
-function(add_gtkwave_target target_name)
-  add_custom_target(
-    ${target_name}
-    COMMAND ${GTKWAVE_APP} "${CMAKE_CURRENT_BINARY_DIR}/${WAVEFORM_FILE}"
-    DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${WAVEFORM_FILE}"
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running gtkwave")
-endfunction()
-
 function(add_verilated_testbench name top_module cpp_main)
-  set(options)
+  set(options ADD_WAVE_TARGET)
   set(oneValueArgs PREFIX)
   set(multiValueArgs SOURCES VERILATOR_ARGS INCLUDE_DIRS EXTRA_SRC)
   cmake_parse_arguments(TESTBENCH "${options}" "${oneValueArgs}"
@@ -95,4 +86,38 @@ function(add_verilated_testbench name top_module cpp_main)
     PREFIX
     ${TESTBENCH_PREFIX}
     TRACE)
+
+  # Add run_<target> if it doesn't already exist
+  set(RUN_TARGET "run_${name}")
+  if(NOT TARGET ${RUN_TARGET})
+    add_custom_target(
+      ${RUN_TARGET}
+      COMMAND ${name}
+      DEPENDS ${name}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+      COMMENT "Running ${name}")
+  else()
+    message(
+      WARNING "Target ${RUN_TARGET} already exists. Skipping auto run target.")
+  endif()
+
+  if(TESTBENCH_ADD_WAVE_TARGET)
+    set(WAVE_TARGET "wave_${name}")
+    if(NOT TARGET ${WAVE_TARGET})
+      add_custom_target(
+        ${WAVE_TARGET}
+		COMMAND ${CMAKE_COMMAND} -E echo_append "Checking for waveform: ${WAVEFORM_FILE}... "
+        COMMAND ${CMAKE_COMMAND} -E sleep 0.1
+        COMMAND ${CMAKE_COMMAND} -E test -f "${CMAKE_CURRENT_BINARY_DIR}/${WAVEFORM_FILE}"
+        	|| ${CMAKE_COMMAND} -E echo "Waveform not found: ${WAVEFORM_FILE}" && exit 1
+		COMMAND ${WAVEFORM_VIEWER} "${CMAKE_CURRENT_BINARY_DIR}/${WAVEFORM_FILE}"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Running waveform viewer for ${name}")
+		add_dependencies(${WAVE_TARGET} ${RUN_TARGET})
+    else()
+      message(
+        WARNING
+          "Target ${WAVE_TARGET} already exists. Skipping auto wave target.")
+    endif()
+  endif()
 endfunction()
