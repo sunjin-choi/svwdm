@@ -12,3 +12,53 @@ function(add_subdirectories_all BASE_DIR)
     endif()
   endforeach()
 endfunction()
+
+function(sort_verilog_sources OUT_LIST IN_LIST_VAR)
+  set(HEADER_SRCS "")
+  set(PKG_SRCS "")
+  set(OTHER_SRCS "")
+
+  foreach(SRC IN LISTS IN_LIST_VAR)
+    if(SRC MATCHES "\\.svh$")
+      list(APPEND HEADER_SRCS ${SRC})
+    elseif(SRC MATCHES "_pkg\.sv$")
+      list(APPEND PKG_SRCS ${SRC})
+    else()
+      list(APPEND OTHER_SRCS ${SRC})
+    endif()
+  endforeach()
+
+  set(_tmp_list ${HEADER_SRCS})
+  list(APPEND _tmp_list ${PKG_SRCS} ${OTHER_SRCS})
+  set(${OUT_LIST}
+      ${_tmp_list}
+      PARENT_SCOPE)
+
+endfunction()
+
+function(add_verilog_library_sources OUT_LIST)
+  set(options PHOTONICS)
+  set(oneValueArgs "")
+  set(multiValueArgs "")
+  cmake_parse_arguments(LIB "${options}" "${oneValueArgs}" "${multiValueArgs}"
+                        ${ARGN})
+
+  set(VERI_LIBSV_SRC "")
+  set(VERI_LIBSVH_SRC "")
+  set(VERI_LIB_SRC "")
+  if(LIB_PHOTONICS)
+    file(GLOB_RECURSE VERI_LIBSV_SRC "${VERILOG_LIB_DIR}/photonics/*.sv")
+    file(GLOB_RECURSE VERI_LIBSVH_SRC "${VERILOG_LIB_DIR}/photonics/*.svh")
+    list(APPEND VERI_LIB_SRC ${VERI_LIBSV_SRC} ${VERI_LIBSVH_SRC})
+  endif()
+
+  # message(STATUS "Adding Verilog library sources: ${VERI_LIB_SRC}")
+  sort_verilog_sources(SORTED_VERI_LIB_SRC "${VERI_LIB_SRC}")
+
+  set(_tmp_list ${SORTED_VERI_LIB_SRC})
+  list(APPEND _tmp_list ${${OUT_LIST}})
+  set(${OUT_LIST}
+      ${_tmp_list}
+      PARENT_SCOPE)
+
+endfunction()
