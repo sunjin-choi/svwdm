@@ -25,5 +25,6 @@ add_verilated_testbench(
   EXTRA_SRC
   ${SIM_SOURCES}
   ADD_WAVE_TARGET
+  CSV
   PREFIX
   Vsim)

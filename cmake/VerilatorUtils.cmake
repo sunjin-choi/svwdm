@@ -63,11 +63,14 @@ function(define_verilator_environment)
 endfunction()
 
 function(add_verilated_testbench name top_module cpp_main)
-  set(options ADD_WAVE_TARGET)
+  set(options ADD_WAVE_TARGET CSV)
   set(oneValueArgs PREFIX)
   set(multiValueArgs SOURCES VERILATOR_ARGS INCLUDE_DIRS EXTRA_SRC)
   cmake_parse_arguments(TESTBENCH "${options}" "${oneValueArgs}"
                         "${multiValueArgs}" ${ARGN})
+
+  target_include_directories(csv2 INTERFACE ${csv2_SOURCE_DIR}/include)
+  target_compile_features(csv2 INTERFACE cxx_std_17)
 
   add_executable(${name} ${cpp_main} ${TESTBENCH_EXTRA_SRC})
 
@@ -86,6 +89,8 @@ function(add_verilated_testbench name top_module cpp_main)
     PREFIX
     ${TESTBENCH_PREFIX}
     TRACE)
+
+  target_link_libraries(${name} PRIVATE csv2)
 
   # Add run_<target> if it doesn't already exist
   set(RUN_TARGET "run-${name}")

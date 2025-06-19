@@ -1,3 +1,6 @@
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 cmake_minimum_required(VERSION 3.12)
 cmake_policy(SET CMP0074 NEW)
 
@@ -13,6 +16,19 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(VerilatorUtils)
 include(ProjectUtils)
+
+# Add external libraries TODO: refactor
+include(FetchContent)
+FetchContent_Declare(
+  tabulate
+  GIT_REPOSITORY https://github.com/p-ranav/tabulate.git
+  GIT_TAG master)
+FetchContent_MakeAvailable(tabulate)
+FetchContent_Declare(
+  csv2
+  GIT_REPOSITORY https://github.com/p-ranav/csv2
+  GIT_TAG master)
+FetchContent_MakeAvailable(csv2)
 
 set(VERILOG_SRC_DIR
     $ENV{VERILOG_SRC_DIR}

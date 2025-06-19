@@ -20,7 +20,7 @@ module photodetector #(
 ) (
 
     // input signals
-    input waves_t i_phot_waves,
+    input var waves_t i_phot_waves,
 
     // output signals
     output real o_real_current
