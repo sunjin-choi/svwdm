@@ -2,11 +2,13 @@
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include <iostream>
+#include <memory>
 
 int main(int argc, char **argv) {
 
   // Construct a VerilatedContext to hold simulation time, etc
-  VerilatedContext *const contextp = new VerilatedContext;
+  /*VerilatedContext *const contextp = new VerilatedContext;*/
+  auto contextp = std::make_unique<VerilatedContext>();
 
   Verilated::traceEverOn(true);
 
@@ -14,15 +16,17 @@ int main(int argc, char **argv) {
   // This needs to be called before you create any model
   contextp->commandArgs(argc, argv);
 
-  VerilatedVcdC *tfp = new VerilatedVcdC;
+  /*VerilatedVcdC *tfp = new VerilatedVcdC;*/
+  auto tfp = std::make_unique<VerilatedVcdC>();
   // Default does not work out -- manually set time unit and resolution
   tfp->set_time_unit("ps");
   tfp->set_time_resolution("ps");
 
   // Construct the Verilated model, from Vsim.h generated from Verilating
-  Vsim *const dut = new Vsim{contextp};
+  /*Vsim *const dut = new Vsim{contextp.get()};*/
+  const auto dut = std::make_unique<Vsim>(contextp.get());
 
-  dut->trace(tfp, 99);
+  dut->trace(tfp.get(), 99);
   tfp->open("waveform.vcd");
 
   // Time variable
@@ -44,9 +48,9 @@ int main(int argc, char **argv) {
 
   // Clean up
   tfp->close();
-  delete dut;
-  delete tfp;
-  delete contextp;
+  /*delete dut;*/
+  /*delete tfp;*/
+  /*delete contextp;*/
 
   return 0;
 }
