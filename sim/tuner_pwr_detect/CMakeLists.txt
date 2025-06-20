@@ -8,7 +8,7 @@ get_filename_component(TB_NAME "${CMAKE_CURRENT_SOURCE_DIR}" NAME)
 
 set(VERI_SRC "${VERILOG_SIM_DIR}/${TB_NAME}/dut.sv")
 set(SIM_SOURCES "${VERILOG_SIM_DIR}/${TB_NAME}/tb.cpp")
-add_verilog_library_sources(VERI_SRC PHOTONICS)
+add_verilog_library_sources(VERI_SRC PHOTONICS TUNER CIRCUITS)
 
 message(STATUS "${TB_NAME} sources: ${VERI_SRC}")
 
