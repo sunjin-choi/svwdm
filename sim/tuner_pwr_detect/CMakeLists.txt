@@ -22,7 +22,7 @@ add_verilated_testbench(
   VERILATOR_ARGS
   ${VERI_ARGS}
   INCLUDE_DIRS
-  "${VERILOG_SRC_DIR}/utils/cpp"
+  "${CPP_LIB_DIR}"
   EXTRA_SRC
   ${SIM_SOURCES}
   ADD_WAVE_TARGET

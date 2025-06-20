@@ -1,5 +1,5 @@
 #include "Vsim.h"
-#include "sweep.hpp"
+#include "utils/sweep.hpp"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include <csv2/writer.hpp>
