@@ -39,22 +39,24 @@ int main(int argc, char **argv) {
   // Sweep parameters
   const double wvl_start = 1295.0;
   const double wvl_end = 1305.0;
-  const double wvl_count = 100;
+  const double wvl_count = 200;
 
-  dut->i_pwr = 1.0;
+  dut->i_pwr = 1000.0;
   dut->i_wvl_ls = wvl_start;
-  dut->i_wvl_ring = 1300.0;
 
-  /*auto sweep = WavelengthSweep(dut->i_pwr, wvl_start, wvl_end, wvl_count);*/
+  // setup a range of wavelengths
+  const std::array<double, 8> wvl_ring = {1297.0, 1298.0, 1299.0, 1300.0,
+                                          1301.0, 1302.0, 1303.0, 1304.0};
 
-  /*// Evaluate
-   *for (; main_time < sim_time; ++main_time) {
-   *  dut->eval();
-   *  tfp->dump(main_time);
-   *}*/
+  int wvl_idx = 0;
+  for (const auto wvl : wvl_ring) {
+    dut->i_wvl_ring[wvl_idx] = wvl;
+    wvl_idx++;
+  }
 
   // initialize sweep result vector
-  csv_t sweep_result;
+  csv_t sweep_result_thru;
+  csv_t sweep_result_drop[8];
 
   for (const auto pt :
        WavelengthSweep(dut->i_pwr, wvl_start, wvl_end, wvl_count)) {
@@ -64,21 +66,32 @@ int main(int argc, char **argv) {
     dut->eval();
     tfp->dump(main_time);
 
-    wvl_tf_t measure = pt;
-    measure.o_pwr = dut->o_pwr_thru;
-    sweep_result.push_back(rec_to_csv_row(measure));
+    wvl_tf_t measure_thru = pt;
+    wvl_tf_t measure_drop[8];
 
-    std::cout << "i_pwr: " << measure.i_pwr << ", i_wvl: " << measure.i_wvl
-              << ", o_pwr: " << measure.o_pwr << std::endl;
+    measure_thru.o_pwr = dut->o_pwr_thru;
+    sweep_result_thru.push_back(rec_to_csv_row(measure_thru));
+
+    for (int i = 0; i < 8; ++i) {
+      measure_drop[i] = pt; // Copy the base measurement
+      measure_drop[i].o_pwr = dut->o_pwr_drop[i];
+      sweep_result_drop[i].push_back(rec_to_csv_row(measure_drop[i]));
+      i++;
+    }
+
+    std::cout << "i_pwr: " << measure_thru.i_pwr
+              << ", i_wvl: " << measure_thru.i_wvl
+              << ", o_pwr_thru: " << measure_thru.o_pwr
+              << ", o_pwr_drop[1]: " << measure_drop[0].o_pwr << std::endl;
     main_time += 1; // Increment time by 1 ps for each iteration
   }
 
-  std::ofstream stream("sweep.csv");
+  std::ofstream stream("sweep_thru.csv");
   csv2::Writer<csv2::delimiter<','>> writer(stream);
 
   // write header
-  writer.write_row(csv_row_t{"i_pwr", "i_wvl", "o_pwr"});
-  writer.write_rows(sweep_result);
+  writer.write_row(csv_row_t{"i_pwr", "i_wvl", "o_pwr_thru"});
+  writer.write_rows(sweep_result_thru);
   stream.close();
 
   /*std::cout << "PD output: " << dut->o_pd << " (A)" << std::endl;*/
