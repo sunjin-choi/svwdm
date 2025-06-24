@@ -29,7 +29,6 @@ module tuner_search_phy #(
     parameter int NUM_TARGET = 8,
     /*parameter logic [DAC_WIDTH-1:0] SEARCH_STEP = 8'h01,*/
     // SEARCH_STEP = 2**SEARCH_STRIDE
-    /*parameter int SEARCH_STRIDE = 1,*/
     parameter int SEARCH_PEAK_WINDOW_HALFSIZE = 4,
     parameter int SEARCH_PEAK_THRES = 2
 ) (
@@ -39,7 +38,7 @@ module tuner_search_phy #(
     // search config
     input var logic [DAC_WIDTH-1:0] i_dig_ring_tune_start,
     input var logic [DAC_WIDTH-1:0] i_dig_ring_tune_end,
-    input var logic [DAC_WIDTH-1:0] i_dig_ring_tune_stride,
+    input var logic [$clog2(DAC_WIDTH)-1:0] i_dig_ring_tune_stride,
 
     // Power Detector Interface
     tuner_pwr_detect_if.consumer pwr_detect_if,
@@ -98,7 +97,7 @@ module tuner_search_phy #(
 
   logic search_trig_fire;
   logic search_peaks_fire;
-  logic search_init;
+  logic search_refresh;
 
   logic pwr_read_fire;
   logic pwr_detect_fire;
@@ -151,7 +150,7 @@ module tuner_search_phy #(
   assign o_dig_search_trig_rdy = (state == SEARCH_IDLE) || (state == SEARCH_DONE);
   assign o_dig_search_peaks_val = (state == SEARCH_DONE);
 
-  assign search_init = state == SEARCH_INIT;
+  assign search_refresh = state == SEARCH_INIT;
 
   assign search_trig_fire = o_dig_search_trig_rdy && i_dig_search_trig_val;
   assign search_peaks_fire = o_dig_search_peaks_val && i_dig_search_peaks_rdy;
@@ -204,7 +203,7 @@ module tuner_search_phy #(
   //      search_active_state <= PWR_READ;
   //    end
   //    // refresh at search enter (init)
-  //    else if (search_init) begin
+  //    else if (search_refresh) begin
   //      search_active_state <= PWR_READ;
   //    end
   //    else begin
@@ -245,7 +244,7 @@ module tuner_search_phy #(
     if (i_rst) begin
       search_active_cnt <= 0;
     end
-    else if (search_init) begin
+    else if (search_refresh) begin
       search_active_cnt <= 0;  // Reset count on init
     end
     else if (search_active_update) begin
@@ -265,7 +264,7 @@ module tuner_search_phy #(
       ring_tune <= '0;
       ring_tune_prev <= '0;
     end
-    else if (search_init) begin
+    else if (search_refresh) begin
       ring_tune <= i_dig_ring_tune_start;
       ring_tune_prev <= i_dig_ring_tune_start;  // Initialize previous tune code
     end
@@ -286,7 +285,7 @@ module tuner_search_phy #(
       pwr_detected_track <= '0;
       ring_tune_track <= '0;
     end
-    else if (search_init) begin
+    else if (search_refresh) begin
       pwr_detected_track <= '0;  // Initialize power detected track
       ring_tune_track <= i_dig_ring_tune_start;  // Start from the initial tune code
     end
@@ -310,8 +309,8 @@ module tuner_search_phy #(
       pwr_decremented_track_window[0] <= '0;
     end
     // Initialize the first window entry at search_init
-    else if (search_init) begin
-      ring_tune_track_window[0] <= i_dig_ring_tune_start;
+    else if (search_refresh) begin
+      ring_tune_track_window[0] <= '0;
       pwr_detected_track_window[0] <= '0;  // Initialize power detected track
       pwr_incremented_track_window[0] <= '0;
       pwr_decremented_track_window[0] <= '0;
@@ -334,8 +333,8 @@ module tuner_search_phy #(
           pwr_decremented_track_window[j] <= '0;
         end
         // Initialize the first window entry at search_init
-        else if (search_init) begin
-          ring_tune_track_window[j] <= i_dig_ring_tune_start;
+        else if (search_refresh) begin
+          ring_tune_track_window[j] <= '0;
           pwr_detected_track_window[j] <= '0;  // Initialize power detected track
           pwr_incremented_track_window[j] <= '0;
           pwr_decremented_track_window[j] <= '0;
@@ -368,7 +367,7 @@ module tuner_search_phy #(
       peak_invalid_cnt <= '0;
     end
     // Reset invalid count at search_init
-    else if (search_init) begin
+    else if (search_refresh) begin
       peak_invalid_cnt <= '0;
     end
     else if (search_active_update) begin
@@ -394,7 +393,7 @@ module tuner_search_phy #(
       peak_ptr <= '0;
     end
     // Reset the peak pointer at search_init
-    else if (search_init) begin
+    else if (search_refresh) begin
       ring_tune_peaks <= '{default: '0};
       pwr_detected_peaks <= '{default: '0};
       peak_ptr <= '0;
