@@ -61,6 +61,9 @@ interface tuner_pwr_detect_if #(
   // ----------------------------------------------------------------------
   // Interface Logic
   // ----------------------------------------------------------------------
+  // Break rdy/val interface abstraction to simplify consumer logic
+  // TODO: if add consumer-side rdy/val here, possible to implement more
+  // controls?
   assign read_val   = pwr_detect_active && (pwr_detect_state == PWR_READ);
   assign detect_rdy = pwr_detect_active && (pwr_detect_state == PWR_DETECT);
 
@@ -92,6 +95,7 @@ interface tuner_pwr_detect_if #(
   end
 
   // All consumer logics that depends on the power detect are triggered at pwr_detect_fire
+  // This signal is a single clock-width pulse
   assign pwr_detect_update = pwr_detect_active && get_detect_ack();
   // ----------------------------------------------------------------------
 
@@ -100,8 +104,8 @@ interface tuner_pwr_detect_if #(
   // ----------------------------------------------------------------------
   modport producer(
       input read_val,
-      output read_rdy,
       input detect_rdy,
+      output read_rdy,
       output detect_val,
       output detect_data,
       import get_read_ack,
@@ -109,9 +113,10 @@ interface tuner_pwr_detect_if #(
   );
 
   modport consumer(
-      output read_val,
+      // Break rdy/val interface abstraction to simplify consumer logic
+      /*output read_val,
+       *output detect_rdy,*/
       input read_rdy,
-      output detect_rdy,
       input detect_val,
       input detect_data,
       // Consumer-side arbitration interface

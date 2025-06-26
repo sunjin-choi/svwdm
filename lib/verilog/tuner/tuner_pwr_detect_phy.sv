@@ -15,10 +15,11 @@
 `default_nettype none
 // verilog_format: on
 
+// TODO: implement a lightweight pwr threshold detector
 module tuner_pwr_detect_phy #(
     parameter int ADC_WIDTH = 8,
     parameter int WAIT_CYCLE = 4,
-    parameter int NUM_PWR_DETECT = 8
+    parameter int NUM_PWR_DETECT = 1
 ) (
     input var logic i_clk,
     input var logic i_rst,
@@ -72,6 +73,7 @@ module tuner_pwr_detect_phy #(
   assign pwr_detect_if.detect_val = (state == DETECT_DONE);
   assign pwr_detect_fire = pwr_detect_if.get_detect_ack();
   /*assign pwr_detect_if.detect_data = pwr_detect_fire ? (acc_pwr / NUM_PWR_DETECT) : '0;*/
+  // TODO: pulsation is bad for SI?
   assign pwr_detect_if.detect_data = pwr_detect_fire ? (acc_pwr >> $clog2(NUM_PWR_DETECT)) : '0;
 
   // State machine with cycle counts

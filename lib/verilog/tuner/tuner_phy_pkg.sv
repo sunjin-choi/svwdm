@@ -90,12 +90,32 @@ package tuner_phy_pkg;
     DETECT_DONE   = 3'b011
   } tuner_phy_detect_state_e;
 
+  typedef enum logic [1:0] {
+    ARB_CTRL_INIT   = 2'b00,
+    ARB_CTRL_TUNE   = 2'b01,  // Tuner update
+    ARB_CTRL_SYNC   = 2'b10,  // Synchronize tuner code-to-pwr detect
+    ARB_CTRL_COMMIT = 2'b11   // Compute next tuner code
+  } tuner_phy_ctrl_arb_state_e;
+
+  typedef enum logic [1:0] {
+    CTRL_TUNE   = 2'b00,  // Tuner update
+    CTRL_UPDATE = 2'b01   // Synchronize tuner code-to-pwr detect
+  } tuner_phy_ctrl_arb_if_state_e;
+
   // Migrated to package since unsupported to be defined within interface
   // in SV-2005/Verilator-5.014
   typedef enum logic {
     PWR_READ,
     PWR_DETECT
   } tuner_phy_detect_if_state_e;
+
+  typedef enum logic [`TUNER_STATE_WIDTH-1:0] {
+    ERROR_DETECT_MULTI,
+    ERROR_TUNE_MULTI,
+    ERROR_TIMEOUT,
+    ERROR_MAX_CODE,
+    ERROR_MIN_CODE
+  } tuner_phy_error_state_e  /*verilator public*/;
   // ----------------------------------------------------------------------
 
 endpackage : tuner_phy_pkg

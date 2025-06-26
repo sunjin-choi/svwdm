@@ -149,7 +149,7 @@ int main(int argc, char **argv) {
     auto search_phy_state = dut->o_mon_state;
     bool force_sample = (dut->o_mon_search_active_update ||
                          (search_phy_state != search_phy_state_prev));
-    search_monitor.sample(main_time, force_sample, false);
+    search_monitor.sample(main_time, force_sample, true);
   };
 
   auto search_range_string = [&]() {

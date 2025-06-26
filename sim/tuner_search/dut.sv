@@ -104,6 +104,28 @@ module dut (
    *assign o_dig_pwr_thru_detect = pwr_detect_if.detect_data;*/
   assign o_dig_pwr_drop_detected   = pwr_detect_if.detect_data;
   assign o_dig_pwr_drop_detect_val = pwr_detect_if.detect_val;
+
+  tuner_search_if #(
+      .ADC_WIDTH (`ADC_WIDTH),
+      .DAC_WIDTH (`DAC_WIDTH),
+      .NUM_TARGET(`NUM_TARGET)
+  ) search_if (
+      .i_clk(i_clk),
+      .i_rst(i_rst)
+  );
+
+  assign search_if.trig_val = i_dig_search_trig_val;
+  assign search_if.peaks_rdy = i_dig_search_peaks_rdy;
+  assign o_dig_search_peaks_val = search_if.peaks_val;
+  assign o_dig_ring_tune_peaks = search_if.ring_tune_peaks;
+  assign o_dig_pwr_detected_peaks = search_if.pwr_peaks;
+  assign o_dig_ring_tune_peaks_cnt = search_if.peaks_cnt;
+
+  tuner_ctrl_arb_if #(
+      .ADC_WIDTH(`ADC_WIDTH),
+      .DAC_WIDTH(`DAC_WIDTH)
+  ) ctrl_arb_if ();
+
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -177,6 +199,16 @@ module dut (
       .pwr_detect_if(pwr_detect_if)
   );
 
+  tuner_ctrl_arb_phy ctrl_arb (
+      .i_clk(i_clk),
+      .i_rst(i_rst),
+      .pwr_detect_if(pwr_detect_if),
+      .arb_if(ctrl_arb_if),
+      .o_dig_afe_ring_tune(dac_tune),
+      .i_afe_ring_tune_rdy(1'b1),
+      .o_afe_ring_tune_val()
+  );
+
   tuner_search_phy #(
       .DAC_WIDTH (`DAC_WIDTH),
       .ADC_WIDTH (`ADC_WIDTH),
@@ -189,19 +221,23 @@ module dut (
       .i_dig_ring_tune_end(i_dig_ring_tune_end),
       .i_dig_ring_tune_stride(i_dig_ring_tune_stride),
 
-      .pwr_detect_if(pwr_detect_if),
+      /*      .pwr_detect_if(pwr_detect_if),
+ *
+ *      .o_dig_ring_tune(dac_tune),*/
 
-      .o_dig_ring_tune(dac_tune),
+      /*      .i_dig_search_trig_val(i_dig_search_trig_val),
+ *      .o_dig_search_trig_rdy(),
+ *
+ *      .o_dig_search_peaks_val(o_dig_search_peaks_val),
+ *      .i_dig_search_peaks_rdy(i_dig_search_peaks_rdy),
+ *
+ *      .o_dig_ring_tune_peaks(o_dig_ring_tune_peaks),
+ *      .o_dig_pwr_detected_peaks(o_dig_pwr_detected_peaks),
+ *      .o_dig_ring_tune_peaks_cnt(o_dig_ring_tune_peaks_cnt),*/
 
-      .i_dig_search_trig_val(i_dig_search_trig_val),
-      .o_dig_search_trig_rdy(),
+      .ctrl_arb_if(ctrl_arb_if),
 
-      .o_dig_search_peaks_val(o_dig_search_peaks_val),
-      .i_dig_search_peaks_rdy(i_dig_search_peaks_rdy),
-
-      .o_dig_ring_tune_peaks(o_dig_ring_tune_peaks),
-      .o_dig_pwr_detected_peaks(o_dig_pwr_detected_peaks),
-      .o_dig_ring_tune_peaks_cnt(o_dig_ring_tune_peaks_cnt),
+      .search_if(search_if),
 
       .o_mon_peak_commit(o_mon_peak_commit),
       .o_mon_search_active_update(o_mon_search_active_update),
