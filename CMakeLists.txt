@@ -36,6 +36,10 @@ set(VERILOG_SRC_DIR
 set(VERILOG_LIB_DIR
     $ENV{VERILOG_LIB_DIR}
     CACHE PATH "Path to the verilog library directory")
+set(CPP_LIB_DIR
+    $ENV{CPP_LIB_DIR}
+    CACHE PATH "Path to the C++ library directory")
+
 set(VERILOG_TEST_DIR
     $ENV{VERILOG_TEST_DIR}
     CACHE PATH "Path to the verilog test directory")
