@@ -15,6 +15,7 @@ package wdm_pkg;
     typedef struct { wave_t wave_bundle[WIDTH-1:0]; } waves``WIDTH``_t;
 
   `DEFINE_WAVES_TYPE(1)
+  `DEFINE_WAVES_TYPE(2)
   `DEFINE_WAVES_TYPE(4)
   `DEFINE_WAVES_TYPE(8)
   `DEFINE_WAVES_TYPE(16)

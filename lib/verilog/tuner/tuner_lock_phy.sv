@@ -30,8 +30,8 @@
 // TODO: gear shift?
 module tuner_lock_phy #(
     parameter int DAC_WIDTH = 8,
-    parameter int ADC_WIDTH = 8,
-    parameter logic [DAC_WIDTH-1:0] DZ_SIZE = 4
+    parameter int ADC_WIDTH = 8
+    /*parameter logic [DAC_WIDTH-1:0] DZ_SIZE = 4*/
 ) (
     input var logic i_clk,
     input var logic i_rst,
@@ -46,8 +46,11 @@ module tuner_lock_phy #(
 
     input var logic i_cfg_local_search_en,
 
-    // Power Detector Interface
-    tuner_pwr_detect_if.consumer pwr_detect_if,
+    /*// Power Detector Interface
+     *tuner_pwr_detect_if.consumer pwr_detect_if,*/
+
+    // Controller Arbiter Interface
+    tuner_ctrl_arb_if.producer ctrl_arb_if,
 
     // Search Interface for local search
     tuner_search_if.consumer search_if,
@@ -103,7 +106,7 @@ module tuner_lock_phy #(
 
   logic lock_trig_fire;
   logic lock_init_done;
-  logic lock_done_fire;
+  logic lock_track_fire;
 
   logic is_lock_active;
   logic lock_active_update;
@@ -120,7 +123,6 @@ module tuner_lock_phy #(
   // ----------------------------------------------------------------------
   // Assigns
   // ----------------------------------------------------------------------
-
   // FIXME: lightweight alternative
   assign ring_pwr_tgt = i_dig_ring_pwr_peak * i_dig_ring_pwr_peak_ratio / 16;
   /*assign ring_tune_step = (1 << i_dig_ring_tune_stride);*/
@@ -134,7 +136,7 @@ module tuner_lock_phy #(
   assign o_dig_lock_done_val = (state == LOCK_DONE);
 
   assign lock_trig_fire = o_dig_lock_trig_rdy && i_dig_lock_trig_val;
-  assign lock_done_fire = o_dig_lock_done_val && i_dig_lock_done_rdy;
+  assign lock_track_fire = o_dig_lock_track_val && i_dig_lock_track_rdy;
 
   // State machine
   always_ff @(posedge i_clk or posedge i_rst) begin
@@ -150,13 +152,14 @@ module tuner_lock_phy #(
     case (state)
       LOCK_IDLE: state_next = lock_trig_fire ? LOCK_INIT : state;
       LOCK_INIT: state_next = lock_init_done ? LOCK_DONE : state;
-      LOCK_DONE: state_next = lock_done_fire ? LOCK_TRACK : state;
-      LOCK_ACTIVE: state_next = state;
+      LOCK_DONE: state_next = lock_done_fire ? LOCK_INIT : state;
+      LOCK_TRACK: state_next = state;
       LOCK_ERROR: state_next = state;
       default: state_next = state;
     endcase
   end
   // ----------------------------------------------------------------------
+
 
   // ----------------------------------------------------------------------
   // Power Detector Interface
@@ -167,6 +170,15 @@ module tuner_lock_phy #(
   assign pwr_detect_if.pwr_detect_active = is_lock_active;
   assign pwr_detect_if.pwr_detect_refresh = !is_lock_active;
   assign lock_active_update = pwr_detect_if.pwr_detect_update;
+  // ----------------------------------------------------------------------
+
+  // ----------------------------------------------------------------------
+  // LOCK_INIT - Hand-off Global/Local Search to Search PHY
+  // ----------------------------------------------------------------------
+  // Simplified consumer logic
+
+
+
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -192,14 +204,13 @@ module tuner_lock_phy #(
   // Compare with power level, if lower than target, then increase the heat code,
   // if higher than target, then decrease the heat code
 
-
   // ----------------------------------------------------------------------
-
 
   // ----------------------------------------------------------------------
   // LOCK_ACTIVE - Slope Detection
   // ----------------------------------------------------------------------
 
+  // ----------------------------------------------------------------------
 
 endmodule
 

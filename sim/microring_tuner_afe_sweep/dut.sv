@@ -59,6 +59,12 @@ module dut (
       pwrs[i] = i_pwr;
     end
   end
+
+  tuner_pwr_detect_if #(.ADC_WIDTH(`ADC_WIDTH)) pwr_detect_if ();
+  assign pwr_detect_if.read_val = 1'b1;
+  assign pwr_detect_if.detect_rdy = 1'b1;
+  assign o_dig_pwr_thru_detect_val = pwr_detect_if.detect_val;
+  assign o_dig_pwr_thru_detect = pwr_detect_if.detect_data;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -128,12 +134,13 @@ module dut (
   tuner_pwr_detect_phy pwr_thru_detect (
       .i_clk(i_clk),
       .i_rst(i_rst),
-      .i_dig_pwr_read_val(1'b1),
-      .o_dig_pwr_read_rdy(),
       .i_dig_ring_pwr(o_adc_thru),
-      .o_dig_pwr_detect_val(o_dig_pwr_thru_detect_val),
-      .i_dig_pwr_detect_rdy(1'b1),
-      .o_dig_ring_pwr_detected(o_dig_pwr_thru_detect)
+      /*.i_dig_pwr_read_val(1'b1),
+       *.o_dig_pwr_read_rdy(),
+       *.o_dig_pwr_detect_val(o_dig_pwr_thru_detect_val),
+       *.i_dig_pwr_detect_rdy(1'b1),
+       *.o_dig_ring_pwr_detected(o_dig_pwr_thru_detect)*/
+      .pwr_detect_if(pwr_detect_if)
   );
   // ----------------------------------------------------------------------
 

@@ -15,6 +15,7 @@
 `default_nettype none
 // verilog_format: on
 
+// TODO: fix such that it accounts for AFE rdy/val
 // TODO: implement a lightweight pwr threshold detector
 module tuner_pwr_detect_phy #(
     parameter int ADC_WIDTH = 8,

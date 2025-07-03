@@ -82,8 +82,8 @@ module tuner_ctrl_arb_phy #(
   assign afe_tune_fire = i_afe_ring_tune_rdy && o_afe_ring_tune_val;
   /*assign ctrl_ring_tune_fire = i_ctrl_ring_tune_val && o_ctrl_ring_tune_rdy;*/
   /*assign ctrl_commit_fire = i_ctrl_commit_rdy && o_ctrl_commit_val;*/
-  assign ctrl_ring_tune_fire = arb_if.get_ctrl_ring_tune_ack();
-  assign ctrl_commit_fire = arb_if.get_ctrl_commit_ack();
+  assign ctrl_ring_tune_fire = arb_if.get_ctrl_ring_tune_ack(CH_SEARCH);  // FIXME
+  assign ctrl_commit_fire = arb_if.get_ctrl_commit_ack(CH_SEARCH);  // FIXME
 
   // Let high-level ctrl PHY to update the tuner code and fire
   // High-level Control (producer) -> Ctrl PHY (middle) -> Tuner (consumer)
@@ -144,6 +144,7 @@ module tuner_ctrl_arb_phy #(
   /*assign pwr_detect_if.pwr_detect_refresh = i_ctrl_refresh;*/
   assign pwr_detect_if.pwr_detect_active = arb_if.get_pwr_detect_active();
   assign pwr_detect_if.pwr_detect_refresh = arb_if.ctrl_refresh;
+  assign ctrl_refresh = arb_if.ctrl_refresh;
 
   assign pwr_detect_update = pwr_detect_if.pwr_detect_update;
 
@@ -159,13 +160,16 @@ module tuner_ctrl_arb_phy #(
     if (i_rst) begin
       state <= ARB_CTRL_INIT;
     end
+    else if (ctrl_refresh) begin
+      state <= ARB_CTRL_INIT;
+    end
     else begin
       state <= state_next;
     end
   end
 
-  // TODO: check if sync_cnt_update or pwr_detect_update is a pulse -- so that
-  // sync_cnt does not run over
+  // TODO: write a safe-guard for sync_cnt_update i.e., if sync_cnt_update
+  // spans multiple clock cycles, only increment onces
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
       sync_cnt <= '0;
@@ -173,9 +177,9 @@ module tuner_ctrl_arb_phy #(
     else begin
       case (state)
         ARB_CTRL_INIT: sync_cnt <= '0;
-        ARB_CTRL_COMMIT: sync_cnt <= '0;
         ARB_CTRL_TUNE: sync_cnt <= '0;
         ARB_CTRL_SYNC: sync_cnt <= sync_cnt_update ? sync_cnt + 1 : sync_cnt;
+        ARB_CTRL_COMMIT: sync_cnt <= '0;
         default: sync_cnt <= sync_cnt;  // Maintain current sync count
       endcase
     end
@@ -187,11 +191,12 @@ module tuner_ctrl_arb_phy #(
     case (state)
       // Begin at pwr_detect_update, move to COMMIT which is aligned with the
       // producer side (start with UPDATE)
-      ARB_CTRL_INIT: state_next = pwr_detect_update ? ARB_CTRL_COMMIT : state;
-      // Commit the control status to the higher-level logic (search/lock)
-      ARB_CTRL_COMMIT: state_next = ctrl_commit_fire ? ARB_CTRL_TUNE : state;
+      /*ARB_CTRL_INIT: state_next = pwr_detect_update ? ARB_CTRL_COMMIT : state;*/
+      ARB_CTRL_INIT: state_next = ARB_CTRL_TUNE;
       // Advance state after firing tuner code to Tuner
       ARB_CTRL_TUNE: state_next = ring_tune_fire ? ARB_CTRL_SYNC : state;
+      // Commit the control status to the higher-level logic (search/lock)
+      ARB_CTRL_COMMIT: state_next = ctrl_commit_fire ? ARB_CTRL_TUNE : state;
       // Tune-to-detect sync counter
       ARB_CTRL_SYNC: state_next = sync_cnt_done ? ARB_CTRL_COMMIT : state;
       default: state_next = state;
@@ -212,9 +217,9 @@ module tuner_ctrl_arb_phy #(
     if (i_rst) begin
       ring_tune_track <= '0;
     end
-    /*else if (ctrl_refresh) begin
-     *  ring_tune_track <= '0;
-     *end*/
+    else if (ctrl_refresh) begin
+      ring_tune_track <= '0;
+    end
     else if (ring_tune_fire) begin
       ring_tune_track <= ring_tune;
     end
@@ -225,7 +230,7 @@ module tuner_ctrl_arb_phy #(
   // This is essential for implementing the synchronization logic
   /*assign o_afe_ring_tune_val = i_ctrl_ring_tune_val && (state == ARB_CTRL_TUNE);*/
   /*assign o_ctrl_ring_tune_rdy = i_afe_ring_tune_rdy && (state == ARB_CTRL_TUNE);*/
-  assign o_afe_ring_tune_val = arb_if.ring_tune_val && (state == ARB_CTRL_TUNE);
+  assign o_afe_ring_tune_val = arb_if.ring_tune_val[CH_SEARCH] && (state == ARB_CTRL_TUNE); // FIXME
   assign arb_if.ring_tune_rdy = i_afe_ring_tune_rdy && (state == ARB_CTRL_TUNE);
 
   assign o_dig_afe_ring_tune = ring_tune;
@@ -246,10 +251,10 @@ module tuner_ctrl_arb_phy #(
       pwr_detected_commit <= '0;
       ring_tune_commit <= '0;
     end
-    /*else if (ctrl_refresh) begin
-     *  pwr_detected_commit <= '0;
-     *  ring_tune_commit <= '0;
-     *end*/
+    else if (ctrl_refresh) begin
+      pwr_detected_commit <= '0;
+      ring_tune_commit <= '0;
+    end
     else if (ctrl_sync) begin
       pwr_detected_commit <= pwr_detect_if.detect_data;
       ring_tune_commit <= ring_tune_track;

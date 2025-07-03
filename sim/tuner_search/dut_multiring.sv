@@ -18,18 +18,19 @@
 `define ADC_WIDTH 8
 `define NUM_TARGET 4
 `define NUM_WAVES 2
+`define NUM_CHANNEL 2
 
 import wdm_pkg::*;
 import tuner_phy_pkg::*;
 
-module dut (
+module dut_multiring (
     input var logic i_clk,
     input var logic i_rst,
 
     // input signals
     input var real i_pwr,
-    input var real i_wvl_ls  [`NUM_WAVES],
-    input var real i_wvl_ring,
+    input var real i_wvl_ls  [  `NUM_WAVES],
+    input var real i_wvl_ring[`NUM_CHANNEL],
 
     // output signals
     output real o_pwr_thru,
@@ -147,16 +148,29 @@ module dut (
       .o_phot_waves(waves_in)
   );
 
-  microring #(
+  /*microring #(
+   *    .waves_t(WAVES_TYPE),
+   *    [>.ResonanceWavelength(i_wvl_ring),<]
+   *    .FWHM(0.2),
+   *    .TuningFullScale(10.0)
+   *) microring (
+   *    .i_phot_waves(waves_in),
+   *    .i_real_wvl_ring(i_wvl_ring),
+   *    .i_real_tuning_dist(ana_tune),  // No tuning for now
+   *    .i_real_temperature(0.0),  // No temperature sensitivity for now
+   *    .o_phot_waves_drop(waves_drop),
+   *    .o_phot_waves_thru(waves_thru)
+   *);*/
+
+  microringrow #(
       .waves_t(WAVES_TYPE),
-      /*.ResonanceWavelength(i_wvl_ring),*/
-      .FWHM(0.2),
+      .FWHM(0.25),
       .TuningFullScale(10.0)
-  ) microring (
+  ) microringrow (
       .i_phot_waves(waves_in),
       .i_real_wvl_ring(i_wvl_ring),
-      .i_real_tuning_dist(ana_tune),  // No tuning for now
-      .i_real_temperature(0.0),  // No temperature sensitivity for now
+      .i_real_tuning_dist('{10.0, 10.0}),
+      .i_real_temperature('{default: 0.0}),  // No temperature sensitivity for now
       .o_phot_waves_drop(waves_drop),
       .o_phot_waves_thru(waves_thru)
   );

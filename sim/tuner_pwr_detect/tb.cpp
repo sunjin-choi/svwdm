@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
 
     /*dut->eval();
      *tfp->dump(main_time);*/
-    while (!dut->o_dig_pwr_thru_detect_val) {
+    while (!dut->o_dig_pwr_thru_detect_fire) {
       advance_clk();
     }
 

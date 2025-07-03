@@ -15,6 +15,7 @@
 `default_nettype none
 // verilog_format: on
 
+// TODO: peaks -> done
 interface tuner_search_if #(
     parameter int DAC_WIDTH  = 8,
     parameter int ADC_WIDTH  = 8,
@@ -36,6 +37,13 @@ interface tuner_search_if #(
   logic [ADC_WIDTH-1:0] pwr_peaks[NUM_TARGET];
   logic [DAC_WIDTH-1:0] ring_tune_peaks[NUM_TARGET];
   logic [$clog2(NUM_TARGET)-1:0] peaks_cnt;
+
+  // Monitor signals
+  logic mon_peak_commit;
+  logic mon_search_active_update;
+  logic [ADC_WIDTH-1:0] mon_ring_pwr;
+  logic [DAC_WIDTH-1:0] mon_ring_tune;
+  tuner_phy_search_state_e mon_state;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -61,6 +69,15 @@ interface tuner_search_if #(
       output pwr_peaks,
       output ring_tune_peaks,
       output peaks_cnt,
+
+      // Monitor
+      output mon_peak_commit,
+      output mon_search_active_update,
+      output mon_ring_pwr,
+      output mon_ring_tune,
+      output mon_state,
+
+      // APIs
       import get_trig_ack,
       import get_peaks_ack
   );
@@ -73,8 +90,18 @@ interface tuner_search_if #(
       input pwr_peaks,
       input ring_tune_peaks,
       input peaks_cnt,
+
+      // APIs
       import get_trig_ack,
       import get_peaks_ack
+  );
+
+  modport monitor(
+      input mon_peak_commit,
+      input mon_search_active_update,
+      input mon_ring_pwr,
+      input mon_ring_tune,
+      input mon_state
   );
   // ----------------------------------------------------------------------
 

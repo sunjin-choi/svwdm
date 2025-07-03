@@ -14,16 +14,22 @@
 `default_nettype none
 // verilog_format: on
 
-module dac #(
-    parameter int DAC_WIDTH = 8,
-    parameter real FullScaleRange = 1.0
+module timer #(
+    parameter int CNT_WIDTH = 4
 ) (
+    input var logic i_clk,
+    input var logic i_rst_async,
+    input var logic i_rst_sync,
 
-    input var logic [DAC_WIDTH-1:0] i_dig,
-    output real o_ana
+    input var logic [CNT_WIDTH-1:0] i_cnt,
+    input var logic i_update,
+
+    output logic o_done
+
 );
 
-  assign o_ana = i_dig * FullScaleRange / real'((2 ** DAC_WIDTH - 1));
+
+
 
 endmodule
 

@@ -15,6 +15,7 @@
 `default_nettype none
 // verilog_format: on
 
+// TODO: fix such that it accounts for AFE rdy/val
 interface tuner_pwr_detect_if #(
     parameter int ADC_WIDTH = 8
 ) (

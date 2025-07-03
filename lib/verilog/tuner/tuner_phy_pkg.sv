@@ -65,6 +65,9 @@ package tuner_phy_pkg;
     NONE
   } tuner_dir_e;
 
+  // ----------------------------------------------------------------------
+  // Controller States
+  // ----------------------------------------------------------------------
   typedef enum logic [`TUNER_STATE_WIDTH-1:0] {
     SEARCH_IDLE   = 8'h0,
     SEARCH_INIT   = 8'h1,
@@ -96,19 +99,11 @@ package tuner_phy_pkg;
     ARB_CTRL_SYNC   = 2'b10,  // Synchronize tuner code-to-pwr detect
     ARB_CTRL_COMMIT = 2'b11   // Compute next tuner code
   } tuner_phy_ctrl_arb_state_e;
+  // ----------------------------------------------------------------------
 
-  typedef enum logic [1:0] {
-    CTRL_TUNE   = 2'b00,  // Tuner update
-    CTRL_UPDATE = 2'b01   // Synchronize tuner code-to-pwr detect
-  } tuner_phy_ctrl_arb_if_state_e;
-
-  // Migrated to package since unsupported to be defined within interface
-  // in SV-2005/Verilator-5.014
-  typedef enum logic {
-    PWR_READ,
-    PWR_DETECT
-  } tuner_phy_detect_if_state_e;
-
+  // ----------------------------------------------------------------------
+  // Error States
+  // ----------------------------------------------------------------------
   typedef enum logic [`TUNER_STATE_WIDTH-1:0] {
     ERROR_DETECT_MULTI,
     ERROR_TUNE_MULTI,
@@ -116,6 +111,30 @@ package tuner_phy_pkg;
     ERROR_MAX_CODE,
     ERROR_MIN_CODE
   } tuner_phy_error_state_e  /*verilator public*/;
+  // ----------------------------------------------------------------------
+
+  // ----------------------------------------------------------------------
+  // Interface Types
+  // ----------------------------------------------------------------------
+  // Migrated to package since unsupported to be defined within interface
+  // in SV-2005/Verilator-5.014
+  typedef enum logic {
+    PWR_READ,
+    PWR_DETECT
+  } tuner_phy_detect_if_state_e;
+
+  // Migrated to package since unsupported to be defined within interface
+  // in SV-2005/Verilator-5.014
+  typedef enum logic [1:0] {
+    CTRL_TUNE   = 2'b00,  // Tuner update
+    CTRL_UPDATE = 2'b01   // Synchronize tuner code-to-pwr detect
+  } tuner_phy_ctrl_arb_if_state_e;
+
+  // Predefined Controller Channels
+  typedef enum logic {
+    CH_SEARCH = 1'b0,
+    CH_LOCK   = 1'b1
+  } tuner_ctrl_ch_e;
   // ----------------------------------------------------------------------
 
 endpackage : tuner_phy_pkg

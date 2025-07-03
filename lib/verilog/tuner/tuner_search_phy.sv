@@ -14,13 +14,11 @@
 `default_nettype none
 // verilog_format: on
 
-// TODO: temporary hack before defining search i/f
-import tuner_phy_pkg::*;
-
 // Currently detects the peak
 // TODO: support a simple threshold-based detection
 // TODO: implement skipping for "false positive" peaks e.g., too shallow
 // TODO: implement an unconditional *interrupt* signal/logic
+// TODO: peaks -> done for ack logic, decide whether to switch to mailbox?
 module tuner_search_phy #(
     parameter int DAC_WIDTH = 8,
     parameter int ADC_WIDTH = 8,
@@ -45,8 +43,11 @@ module tuner_search_phy #(
     // Controller Arbiter Interface
     tuner_ctrl_arb_if.producer ctrl_arb_if,
 
+    // Search Interface for local search
+    tuner_search_if.producer search_if,
+
     // Tuner AFE Interface
-    output logic [DAC_WIDTH-1:0] o_dig_ring_tune,
+    output logic [DAC_WIDTH-1:0] o_dig_ring_tune
 
     // Tuner Controller Interface
     //    // consumer of trigger
@@ -61,14 +62,13 @@ module tuner_search_phy #(
     //    output logic [DAC_WIDTH-1:0] o_dig_ring_tune_peaks[NUM_TARGET],
     //    output logic [ADC_WIDTH-1:0] o_dig_pwr_detected_peaks[NUM_TARGET],
     //    output logic [$clog2(NUM_TARGET)-1:0] o_dig_ring_tune_peaks_cnt,
-    tuner_search_if.producer search_if,
-
-    // Debug Monitors
-    output logic o_mon_peak_commit,
-    output logic o_mon_search_active_update,
-    output logic [ADC_WIDTH-1:0] o_mon_ring_pwr,
-    output logic [DAC_WIDTH-1:0] o_mon_ring_tune,
-    output tuner_phy_search_state_e o_mon_state
+    //
+    //    // Debug Monitors
+    //    output logic o_mon_peak_commit,
+    //    output logic o_mon_search_active_update,
+    //    output logic [ADC_WIDTH-1:0] o_mon_ring_pwr,
+    //    output logic [DAC_WIDTH-1:0] o_mon_ring_tune,
+    //    output tuner_phy_search_state_e o_mon_state
 );
   import tuner_phy_pkg::*;
 
@@ -110,7 +110,9 @@ module tuner_search_phy #(
   logic is_ctrl_active_state;
   logic is_tune_state;
   logic is_update_state;
-  logic tune_compute_start;
+  logic tune_fire;
+  logic commit_fire;
+  logic tune_compute;
   logic tune_compute_done;
   logic update_commit_done;
 
@@ -126,7 +128,8 @@ module tuner_search_phy #(
 
   logic [DAC_WIDTH-1:0] ring_tune_step;
   logic [DAC_WIDTH-1:0] ring_tune;
-  logic [DAC_WIDTH-1:0] ring_tune_prev;
+  /*logic [DAC_WIDTH-1:0] ring_tune_prev;*/
+  logic [DAC_WIDTH-1:0] ring_tune_next;
 
   /*logic [ADC_WIDTH-1:0] ring_pwr_detected;
    *logic [ADC_WIDTH-1:0] ring_pwr_detected_prev;*/
@@ -260,13 +263,16 @@ module tuner_search_phy #(
   // Tune sub-state: compute tuner code
   assign is_tune_state = is_ctrl_active_state && (search_active_state == CTRL_TUNE);
 
+  assign tune_fire = ctrl_arb_if.get_ctrl_ring_tune_ack(CH_SEARCH);
+  assign commit_fire = ctrl_arb_if.get_ctrl_commit_ack(CH_SEARCH);
+
   // Internal state for controller arbiter
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
-      search_active_state <= CTRL_UPDATE;  // Start with CTRL_TUNE
+      search_active_state <= CTRL_TUNE;  // Start with CTRL_TUNE
     end
     else if (search_refresh) begin
-      search_active_state <= CTRL_UPDATE;  // Reset to CTRL_TUNE on refresh
+      search_active_state <= CTRL_TUNE;  // Reset to CTRL_TUNE on refresh
     end
     else begin
       search_active_state <= search_active_state_next;
@@ -278,8 +284,8 @@ module tuner_search_phy #(
     search_active_state_next = search_active_state;
     if (is_ctrl_active_state) begin
       case (search_active_state)
-        CTRL_UPDATE: if (ctrl_arb_if.get_ctrl_commit_ack()) search_active_state_next = CTRL_TUNE;
-        CTRL_TUNE: if (ctrl_arb_if.get_ctrl_ring_tune_ack()) search_active_state_next = CTRL_UPDATE;
+        CTRL_TUNE: if (tune_fire) search_active_state_next = CTRL_UPDATE;
+        CTRL_UPDATE: if (commit_fire) search_active_state_next = CTRL_TUNE;
         default: search_active_state_next = CTRL_UPDATE;  // Reset to CTRL_TUNE on error
       endcase
     end
@@ -288,15 +294,16 @@ module tuner_search_phy #(
   assign ctrl_arb_if.ctrl_active = is_ctrl_active_state;
   assign ctrl_arb_if.ctrl_refresh = search_refresh;
 
-  assign ctrl_arb_if.ring_tune_val = is_tune_state && tune_compute_done;
+  assign ctrl_arb_if.ring_tune_val[CH_SEARCH] = is_tune_state && tune_compute_done;
 
   // commit is instantaneous
-  assign update_commit_done = 1'b1;
-  assign ctrl_arb_if.commit_rdy = is_update_state && update_commit_done;
+  assign update_commit_done = is_update_state;
+  assign ctrl_arb_if.commit_rdy[CH_SEARCH] = is_update_state && update_commit_done;
 
-  assign search_active_update = is_ctrl_active_state && ctrl_arb_if.get_ctrl_commit_ack();
+  /*assign search_active_update = is_ctrl_active_state && ctrl_arb_if.get_ctrl_commit_ack(CH_SEARCH);*/
+  assign search_active_update = is_ctrl_active_state && commit_fire;
   // compute start at the next cycle after commit
-  assign tune_compute_start = search_active_update;
+  /*assign tune_compute_start = search_active_update;*/
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -304,20 +311,33 @@ module tuner_search_phy #(
   // ----------------------------------------------------------------------
   // Step ring tuner at pwr detect (let pwr detector to deal with analog delays)
   assign ring_tune_step = (1 << i_dig_ring_tune_stride);
+  assign tune_compute = is_tune_state && !tune_compute_done;
 
-  // Assume compute done at the next cycle after tune_compute_start
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
       ring_tune <= '0;
-      tune_compute_done <= 1'b0;
     end
     else if (search_refresh) begin
       ring_tune <= i_dig_ring_tune_start;
+    end
+    else if (tune_compute) begin
+      ring_tune <= ring_tune + ring_tune_step;
+    end
+  end
+
+  always_ff @(posedge i_clk or posedge i_rst) begin
+    if (i_rst) begin
       tune_compute_done <= 1'b0;
     end
-    else if (tune_compute_start) begin
-      ring_tune <= ring_tune + ring_tune_step;
+    else if (search_refresh) begin
+      tune_compute_done <= 1'b0;
+    end
+    // Assume single-cycle tuner code compute (toggle done immediately)
+    else if (is_tune_state) begin
       tune_compute_done <= 1'b1;
+    end
+    else if (is_update_state) begin
+      tune_compute_done <= 1'b0;
     end
   end
 
@@ -358,9 +378,7 @@ module tuner_search_phy #(
       ring_tune_track <= i_dig_ring_tune_start;  // Start from the initial tune code
     end
     else if (search_active_update) begin
-      //pwr_detected_track <= pwr_detect_if.detect_data;
-      //// Manually synchronize ring_tune_track and pwr_detected_track
-      //ring_tune_track <= ring_tune_prev;
+      // Receive the committed ring tune and power from the controller arbiter
       pwr_detected_track <= ctrl_arb_if.pwr_commit;
       ring_tune_track <= ctrl_arb_if.ring_tune_commit;
     end
@@ -509,11 +527,17 @@ module tuner_search_phy #(
   // ----------------------------------------------------------------------
   // Monitor logic
   // ----------------------------------------------------------------------
-  assign o_mon_peak_commit = peak_commit;
-  assign o_mon_search_active_update = search_active_update;
-  assign o_mon_ring_pwr = pwr_detected_track;
-  assign o_mon_ring_tune = ring_tune_track;
-  assign o_mon_state = state;
+  /*assign o_mon_peak_commit = peak_commit;
+   *assign o_mon_search_active_update = search_active_update;
+   *assign o_mon_ring_pwr = pwr_detected_track;
+   *assign o_mon_ring_tune = ring_tune_track;
+   *assign o_mon_state = state;*/
+
+  assign search_if.mon_peak_commit = peak_commit;
+  assign search_if.mon_search_active_update = search_active_update;
+  assign search_if.mon_ring_pwr = pwr_detected_track;
+  assign search_if.mon_ring_tune = ring_tune_track;
+  assign search_if.mon_state = state;
   // ----------------------------------------------------------------------
 
 endmodule
