@@ -7,7 +7,8 @@
 // Variable naming conventions:
 //    signals => snake_case
 //    Parameters (aliasing signal values) => SNAKE_CASE with all caps
-//    Parameters (not aliasing signal values) => CamelCase
+//    Module Parameters => ALL_CAPS_SNAKE_CASE
+//    Local Parameters => CamelCase
 //==============================================================================
 
 // verilog_format: off

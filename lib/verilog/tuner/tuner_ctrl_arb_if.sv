@@ -8,7 +8,8 @@
 // Variable naming conventions:
 //    signals => snake_case
 //    Parameters (aliasing signal values) => SNAKE_CASE with all caps
-//    Parameters (not aliasing signal values) => CamelCase
+//    Module Parameters => ALL_CAPS_SNAKE_CASE
+//    Local Parameters => CamelCase
 //==============================================================================
 
 // verilog_format: off
@@ -36,9 +37,9 @@ interface tuner_ctrl_arb_if #(
   // Control -> Arbiter: Ring tuning value (to be sent to AFE)
   logic [DAC_WIDTH-1:0] ring_tune;
   // Controller
-  logic                 ring_tune_val    [NumChannel];
+  logic                 tune_val    [NumChannel];
   // Arbiter/AFE
-  logic                 ring_tune_rdy;
+  logic                 tune_rdy;
 
   // Arbiter -> Control: Committed ring tune and detected power
   logic [DAC_WIDTH-1:0] ring_tune_commit;
@@ -66,8 +67,8 @@ interface tuner_ctrl_arb_if #(
   // 1. Search takes priority over Lock
   // 2. If one claims ring_tune, it should also claim commit
 
-  function automatic logic get_ctrl_ring_tune_ch_ack(tuner_ctrl_ch_e ch);
-    return ring_tune_rdy && ring_tune_val[ch];
+  function automatic logic get_ctrl_tune_ch_ack(tuner_ctrl_ch_e ch);
+    return tune_rdy && tune_val[ch];
   endfunction
 
   function automatic logic get_ctrl_commit_ch_ack(tuner_ctrl_ch_e ch);
@@ -78,9 +79,9 @@ interface tuner_ctrl_arb_if #(
     logic search_tune_ack, search_commit_ack;
     logic lock_tune_ack, lock_commit_ack;
 
-    search_tune_ack = get_ctrl_ring_tune_ch_ack(CH_SEARCH);
+    search_tune_ack = get_ctrl_tune_ch_ack(CH_SEARCH);
     search_commit_ack = get_ctrl_commit_ch_ack(CH_SEARCH);
-    lock_tune_ack = get_ctrl_ring_tune_ch_ack(CH_LOCK);
+    lock_tune_ack = get_ctrl_tune_ch_ack(CH_LOCK);
     lock_commit_ack = get_ctrl_commit_ch_ack(CH_LOCK);
 
     if (search_tune_ack) return CH_SEARCH;
@@ -90,8 +91,8 @@ interface tuner_ctrl_arb_if #(
     else return CH_SEARCH;  // Default to search channel if no ack
   endfunction
 
-  function automatic logic get_ctrl_ring_tune_ack(tuner_ctrl_ch_e ch);
-    return get_ctrl_ring_tune_ch_ack(ch) && (select_channel() == ch);
+  function automatic logic get_ctrl_tune_ack(tuner_ctrl_ch_e ch);
+    return get_ctrl_tune_ch_ack(ch) && (select_channel() == ch);
   endfunction
 
   function automatic logic get_ctrl_commit_ack(tuner_ctrl_ch_e ch);
@@ -106,13 +107,13 @@ interface tuner_ctrl_arb_if #(
       output ctrl_active,
       output ctrl_refresh,
       output ring_tune,
-      output ring_tune_val,
-      input ring_tune_rdy,
+      output tune_val,
+      input tune_rdy,
       input ring_tune_commit,
       input pwr_commit,
       input commit_val,
       output commit_rdy,
-      import get_ctrl_ring_tune_ack,
+      import get_ctrl_tune_ack,
       import get_ctrl_commit_ack,
       import get_pwr_detect_active
   );
@@ -122,13 +123,13 @@ interface tuner_ctrl_arb_if #(
       input ctrl_active,
       input ctrl_refresh,
       input ring_tune,
-      input ring_tune_val,
-      output ring_tune_rdy,
+      input tune_val,
+      output tune_rdy,
       output ring_tune_commit,
       output pwr_commit,
       output commit_val,
       input commit_rdy,
-      import get_ctrl_ring_tune_ack,
+      import get_ctrl_tune_ack,
       import get_ctrl_commit_ack,
       import get_pwr_detect_active
   );
