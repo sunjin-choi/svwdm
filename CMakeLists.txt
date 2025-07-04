@@ -22,12 +22,12 @@ include(FetchContent)
 FetchContent_Declare(
   tabulate
   GIT_REPOSITORY https://github.com/p-ranav/tabulate.git
-  GIT_TAG master)
+  GIT_TAG v1.5)
 FetchContent_MakeAvailable(tabulate)
 FetchContent_Declare(
   csv2
   GIT_REPOSITORY https://github.com/p-ranav/csv2
-  GIT_TAG master)
+  GIT_TAG 4f3c41db6457465e94b92b91fc560b911c16a16a)
 FetchContent_MakeAvailable(csv2)
 
 set(VERILOG_SRC_DIR
