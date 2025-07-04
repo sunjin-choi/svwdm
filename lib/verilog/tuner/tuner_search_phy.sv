@@ -6,7 +6,8 @@
 // Variable naming conventions:
 //    signals => snake_case
 //    Parameters (aliasing signal values) => SNAKE_CASE with all caps
-//    Parameters (not aliasing signal values) => CamelCase
+//    Module Parameters => ALL_CAPS_SNAKE_CASE
+//    Local Parameters => CamelCase
 //==============================================================================
 
 // verilog_format: off
@@ -133,19 +134,19 @@ module tuner_search_phy #(
 
   /*logic [ADC_WIDTH-1:0] ring_pwr_detected;
    *logic [ADC_WIDTH-1:0] ring_pwr_detected_prev;*/
-  logic [DAC_WIDTH-1:0] ring_tune_track_window[SearchPeakWindowSize];
-  logic [ADC_WIDTH-1:0] pwr_detected_track_window[SearchPeakWindowSize];
+  logic [DAC_WIDTH-1:0] ring_tune_track_win[SearchPeakWindowSize];
+  logic [ADC_WIDTH-1:0] pwr_det_track_win[SearchPeakWindowSize];
   logic [DAC_WIDTH-1:0] ring_tune_track;
-  logic [ADC_WIDTH-1:0] pwr_detected_track;
+  logic [ADC_WIDTH-1:0] pwr_det_track;
   logic [DAC_WIDTH-1:0] ring_tune_peak_track;
-  logic [ADC_WIDTH-1:0] pwr_detected_peak_track;
+  logic [ADC_WIDTH-1:0] pwr_peak_track;
 
   logic pwr_incremented;
   logic pwr_decremented;
   /*logic pwr_incremented_track_window[SearchPeakWindowSize];*/
   /*logic pwr_decremented_track_window[SearchPeakWindowSize];*/
-  logic [SearchPeakWindowSize-1:0] pwr_incremented_track_window;
-  logic [SearchPeakWindowSize-1:0] pwr_decremented_track_window;
+  logic [SearchPeakWindowSize-1:0] pwr_inc_track_win;
+  logic [SearchPeakWindowSize-1:0] pwr_dec_track_win;
   logic pwr_incremented_vote;
   logic pwr_decremented_vote;
 
@@ -263,7 +264,7 @@ module tuner_search_phy #(
   // Tune sub-state: compute tuner code
   assign is_tune_state = is_ctrl_active_state && (search_active_state == CTRL_TUNE);
 
-  assign tune_fire = ctrl_arb_if.get_ctrl_ring_tune_ack(CH_SEARCH);
+  assign tune_fire = ctrl_arb_if.get_ctrl_tune_ack(CH_SEARCH);
   assign commit_fire = ctrl_arb_if.get_ctrl_commit_ack(CH_SEARCH);
 
   // Internal state for controller arbiter
@@ -294,7 +295,7 @@ module tuner_search_phy #(
   assign ctrl_arb_if.ctrl_active = is_ctrl_active_state;
   assign ctrl_arb_if.ctrl_refresh = search_refresh;
 
-  assign ctrl_arb_if.ring_tune_val[CH_SEARCH] = is_tune_state && tune_compute_done;
+  assign ctrl_arb_if.tune_val[CH_SEARCH] = is_tune_state && tune_compute_done;
 
   // commit is instantaneous
   assign update_commit_done = is_update_state;
@@ -370,16 +371,16 @@ module tuner_search_phy #(
   // ----------------------------------------------------------------------
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
-      pwr_detected_track <= '0;
+      pwr_det_track <= '0;
       ring_tune_track <= '0;
     end
     else if (search_refresh) begin
-      pwr_detected_track <= '0;  // Initialize power detected track
+      pwr_det_track <= '0;  // Initialize power detected track
       ring_tune_track <= i_dig_ring_tune_start;  // Start from the initial tune code
     end
     else if (search_active_update) begin
       // Receive the committed ring tune and power from the controller arbiter
-      pwr_detected_track <= ctrl_arb_if.pwr_commit;
+      pwr_det_track <= ctrl_arb_if.pwr_commit;
       ring_tune_track <= ctrl_arb_if.ring_tune_commit;
     end
   end
@@ -387,28 +388,28 @@ module tuner_search_phy #(
   // Majority-Vote
   /*assign pwr_incremented = (i_dig_pwr_detected > pwr_detected_track_window[0]);*/
   /*assign pwr_decremented = (i_dig_pwr_detected < pwr_detected_track_window[0]);*/
-  assign pwr_incremented = pwr_detected_track_window[0] > pwr_detected_track_window[1];
-  assign pwr_decremented = pwr_detected_track_window[0] < pwr_detected_track_window[1];
+  assign pwr_incremented = pwr_det_track_win[0] > pwr_det_track_win[1];
+  assign pwr_decremented = pwr_det_track_win[0] < pwr_det_track_win[1];
 
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
-      ring_tune_track_window[0] <= '0;
-      pwr_detected_track_window[0] <= '0;
-      pwr_incremented_track_window[0] <= '0;
-      pwr_decremented_track_window[0] <= '0;
+      ring_tune_track_win[0] <= '0;
+      pwr_det_track_win[0] <= '0;
+      pwr_inc_track_win[0] <= '0;
+      pwr_dec_track_win[0] <= '0;
     end
     // Initialize the first window entry at search_init
     else if (search_refresh) begin
-      ring_tune_track_window[0] <= '0;
-      pwr_detected_track_window[0] <= '0;  // Initialize power detected track
-      pwr_incremented_track_window[0] <= '0;
-      pwr_decremented_track_window[0] <= '0;
+      ring_tune_track_win[0] <= '0;
+      pwr_det_track_win[0] <= '0;  // Initialize power detected track
+      pwr_inc_track_win[0] <= '0;
+      pwr_dec_track_win[0] <= '0;
     end
     else if (search_active_update) begin
-      ring_tune_track_window[0] <= ring_tune_track;
-      pwr_detected_track_window[0] <= pwr_detected_track;
-      pwr_incremented_track_window[0] <= pwr_incremented;
-      pwr_decremented_track_window[0] <= pwr_decremented;
+      ring_tune_track_win[0] <= ring_tune_track;
+      pwr_det_track_win[0] <= pwr_det_track;
+      pwr_inc_track_win[0] <= pwr_incremented;
+      pwr_dec_track_win[0] <= pwr_decremented;
     end
   end
 
@@ -416,37 +417,37 @@ module tuner_search_phy #(
     for (genvar j = 1; j < SearchPeakWindowSize; j++) begin
       always_ff @(posedge i_clk or posedge i_rst) begin
         if (i_rst) begin
-          ring_tune_track_window[j] <= '0;
-          pwr_detected_track_window[j] <= '0;
-          pwr_incremented_track_window[j] <= '0;
-          pwr_decremented_track_window[j] <= '0;
+          ring_tune_track_win[j] <= '0;
+          pwr_det_track_win[j] <= '0;
+          pwr_inc_track_win[j] <= '0;
+          pwr_dec_track_win[j] <= '0;
         end
         // Initialize the first window entry at search_init
         else if (search_refresh) begin
-          ring_tune_track_window[j] <= '0;
-          pwr_detected_track_window[j] <= '0;  // Initialize power detected track
-          pwr_incremented_track_window[j] <= '0;
-          pwr_decremented_track_window[j] <= '0;
+          ring_tune_track_win[j] <= '0;
+          pwr_det_track_win[j] <= '0;  // Initialize power detected track
+          pwr_inc_track_win[j] <= '0;
+          pwr_dec_track_win[j] <= '0;
         end
         else if (search_active_update) begin
-          ring_tune_track_window[j] <= ring_tune_track_window[j-1];
-          pwr_detected_track_window[j] <= pwr_detected_track_window[j-1];
-          pwr_incremented_track_window[j] <= pwr_incremented_track_window[j-1];
-          pwr_decremented_track_window[j] <= pwr_decremented_track_window[j-1];
+          ring_tune_track_win[j] <= ring_tune_track_win[j-1];
+          pwr_det_track_win[j] <= pwr_det_track_win[j-1];
+          pwr_inc_track_win[j] <= pwr_inc_track_win[j-1];
+          pwr_dec_track_win[j] <= pwr_dec_track_win[j-1];
         end
       end
     end
   endgenerate
 
-  assign ring_tune_peak_track = ring_tune_track_window[SearchPeakTrackIndex];
-  assign pwr_detected_peak_track = pwr_detected_track_window[SearchPeakTrackIndex];
+  assign ring_tune_peak_track = ring_tune_track_win[SearchPeakTrackIndex];
+  assign pwr_peak_track = pwr_det_track_win[SearchPeakTrackIndex];
   assign pwr_incremented_vote = majority_vote(
-      pwr_incremented_track_window[SearchPeakWindowSize:SearchPeakWindowHalfSize+1],
+      pwr_inc_track_win[SearchPeakWindowSize:SearchPeakWindowHalfSize+1],
       SEARCH_PEAK_THRES
       /*pwr_incremented_track_window[SearchPeakWindowHalfSize-1:0], SEARCH_PEAK_THRES*/
   );
   assign pwr_decremented_vote = majority_vote(
-      pwr_decremented_track_window[SearchPeakWindowHalfSize-1:0],
+      pwr_dec_track_win[SearchPeakWindowHalfSize-1:0],
       SEARCH_PEAK_THRES
       /*pwr_decremented_track_window[SearchPeakWindowSize:SearchPeakWindowHalfSize+1],
        *SEARCH_PEAK_THRES*/
@@ -495,7 +496,7 @@ module tuner_search_phy #(
     else if (search_active_update & peak_commit) begin
       // Store the peak in the array
       ring_tune_peaks[peak_ptr] <= ring_tune_peak_track;
-      pwr_peaks[peak_ptr] <= pwr_detected_peak_track;
+      pwr_peaks[peak_ptr] <= pwr_peak_track;
       peak_ptr <= peak_ptr + 1;
     end
   end
@@ -535,7 +536,7 @@ module tuner_search_phy #(
 
   assign search_if.mon_peak_commit = peak_commit;
   assign search_if.mon_search_active_update = search_active_update;
-  assign search_if.mon_ring_pwr = pwr_detected_track;
+  assign search_if.mon_ring_pwr = pwr_det_track;
   assign search_if.mon_ring_tune = ring_tune_track;
   assign search_if.mon_state = state;
   // ----------------------------------------------------------------------

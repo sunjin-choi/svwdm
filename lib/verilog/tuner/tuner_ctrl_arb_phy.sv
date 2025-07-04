@@ -6,7 +6,8 @@
 // Variable naming conventions:
 //    signals => snake_case
 //    Parameters (aliasing signal values) => SNAKE_CASE with all caps
-//    Parameters (not aliasing signal values) => CamelCase
+//    Module Parameters => ALL_CAPS_SNAKE_CASE
+//    Local Parameters => CamelCase
 //==============================================================================
 
 // verilog_format: off
@@ -28,7 +29,7 @@ module tuner_ctrl_arb_phy #(
     // Power Detector Interface
     tuner_pwr_detect_if.consumer pwr_detect_if,
 
-    tuner_ctrl_arb_if.consumer arb_if,
+    tuner_ctrl_arb_if.consumer ctrl_arb_if,
 
     // Tuner AFE Interface
     output logic [DAC_WIDTH-1:0] o_dig_afe_ring_tune,
@@ -67,7 +68,7 @@ module tuner_ctrl_arb_phy #(
   logic ctrl_refresh;
   logic ctrl_sync;
 
-  logic ctrl_ring_tune_fire;
+  logic ctrl_tune_fire;
   logic afe_tune_fire;
   logic ring_tune_fire;
 
@@ -82,13 +83,13 @@ module tuner_ctrl_arb_phy #(
   assign afe_tune_fire = i_afe_ring_tune_rdy && o_afe_ring_tune_val;
   /*assign ctrl_ring_tune_fire = i_ctrl_ring_tune_val && o_ctrl_ring_tune_rdy;*/
   /*assign ctrl_commit_fire = i_ctrl_commit_rdy && o_ctrl_commit_val;*/
-  assign ctrl_ring_tune_fire = arb_if.get_ctrl_ring_tune_ack(CH_SEARCH);  // FIXME
-  assign ctrl_commit_fire = arb_if.get_ctrl_commit_ack(CH_SEARCH);  // FIXME
+  assign ctrl_tune_fire = ctrl_arb_if.get_ctrl_tune_ack(CH_SEARCH);  // FIXME
+  assign ctrl_commit_fire = ctrl_arb_if.get_ctrl_commit_ack(CH_SEARCH);  // FIXME
 
   // Let high-level ctrl PHY to update the tuner code and fire
   // High-level Control (producer) -> Ctrl PHY (middle) -> Tuner (consumer)
   // Fire the tuner code *only* when both producer and consumer agree
-  assign ring_tune_fire = afe_tune_fire && ctrl_ring_tune_fire;
+  assign ring_tune_fire = afe_tune_fire && ctrl_tune_fire;
   /*assign ctrl_tune_fire = tuner_if_arb_if.get_compute_ack();*/
   /*assign ctrl_commit_fire = tuner_if_arb_if.get_commit_ack();*/
   // ----------------------------------------------------------------------
@@ -142,9 +143,9 @@ module tuner_ctrl_arb_phy #(
   // Power detection is always active when ctrl is active
   /*assign pwr_detect_if.pwr_detect_active = i_ctrl_active;*/
   /*assign pwr_detect_if.pwr_detect_refresh = i_ctrl_refresh;*/
-  assign pwr_detect_if.pwr_detect_active = arb_if.get_pwr_detect_active();
-  assign pwr_detect_if.pwr_detect_refresh = arb_if.ctrl_refresh;
-  assign ctrl_refresh = arb_if.ctrl_refresh;
+  assign pwr_detect_if.pwr_detect_active = ctrl_arb_if.get_pwr_detect_active();
+  assign pwr_detect_if.pwr_detect_refresh = ctrl_arb_if.ctrl_refresh;
+  assign ctrl_refresh = ctrl_arb_if.ctrl_refresh;
 
   assign pwr_detect_update = pwr_detect_if.pwr_detect_update;
 
@@ -211,7 +212,7 @@ module tuner_ctrl_arb_phy #(
   // Yet consumer (tuner) is also responsible of keeping the previous data,
   // duplicate the logic here for simplicity
   /*assign ring_tune = ring_tune_fire ? i_ctrl_ring_tune : ring_tune_track;*/
-  assign ring_tune = ring_tune_fire ? arb_if.ring_tune : ring_tune_track;
+  assign ring_tune = ring_tune_fire ? ctrl_arb_if.ring_tune : ring_tune_track;
 
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
@@ -230,8 +231,8 @@ module tuner_ctrl_arb_phy #(
   // This is essential for implementing the synchronization logic
   /*assign o_afe_ring_tune_val = i_ctrl_ring_tune_val && (state == ARB_CTRL_TUNE);*/
   /*assign o_ctrl_ring_tune_rdy = i_afe_ring_tune_rdy && (state == ARB_CTRL_TUNE);*/
-  assign o_afe_ring_tune_val = arb_if.ring_tune_val[CH_SEARCH] && (state == ARB_CTRL_TUNE); // FIXME
-  assign arb_if.ring_tune_rdy = i_afe_ring_tune_rdy && (state == ARB_CTRL_TUNE);
+  assign o_afe_ring_tune_val = ctrl_arb_if.tune_val[CH_SEARCH] && (state == ARB_CTRL_TUNE); // FIXME
+  assign ctrl_arb_if.tune_rdy = i_afe_ring_tune_rdy && (state == ARB_CTRL_TUNE);
 
   assign o_dig_afe_ring_tune = ring_tune;
   // ----------------------------------------------------------------------
@@ -278,12 +279,12 @@ module tuner_ctrl_arb_phy #(
   // Output committed values
   /*assign o_ctrl_pwr_commit       = pwr_detected_commit;*/
   /*assign o_ctrl_ring_tune_commit = ring_tune_commit;*/
-  assign arb_if.pwr_commit       = pwr_detected_commit;
-  assign arb_if.ring_tune_commit = ring_tune_commit;
+  assign ctrl_arb_if.pwr_commit       = pwr_detected_commit;
+  assign ctrl_arb_if.ring_tune_commit = ring_tune_commit;
 
   // Drive valid signal only in COMMIT state
   /*assign o_ctrl_commit_val       = (state == ARB_CTRL_COMMIT);*/
-  assign arb_if.commit_val       = (state == ARB_CTRL_COMMIT);
+  assign ctrl_arb_if.commit_val       = (state == ARB_CTRL_COMMIT);
   // ----------------------------------------------------------------------
 
 endmodule
