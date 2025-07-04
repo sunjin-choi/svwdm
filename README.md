@@ -69,6 +69,12 @@ To build the project, you will need to have CMake and Verilator installed.
     make run-hello_world
     ```
 
+## Requirements
+
+Tested under:
+- cmake v3.31.1
+- verilator 5.014
+
 ## Documentation
 
 The project documentation is generated using Sphinx. To build the documentation, navigate to the `docs/` directory and run:
