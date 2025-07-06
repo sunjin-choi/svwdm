@@ -153,17 +153,17 @@ module dut (
    *);*/
 
   microringrow #(
-      .waves_t      (WAVES_TYPE),
-      .NUM_CHANNEL  (`NUM_CHANNEL),
-      .FWHM         (0.25),
+      .waves_t        (WAVES_TYPE),
+      .NUM_CHANNEL    (`NUM_CHANNEL),
+      .FWHM           (0.25),
       .TuningFullScale(10.0)
   ) microringrow (
-      .i_phot_waves     (waves_in),
-      .i_real_wvl_ring  (i_wvl_ring),
+      .i_phot_waves      (waves_in),
+      .i_real_wvl_ring   (i_wvl_ring),
       .i_real_tuning_dist(real_tuning_dist),
-      .i_real_temperature('{default: 0.0}),  // No temperature sensitivity for now
-      .o_phot_waves_drop(waves_drop),
-      .o_phot_waves_thru(waves_thru)
+      .i_real_temperature('{default: 0.0}),   // No temperature sensitivity for now
+      .o_phot_waves_drop (waves_drop),
+      .o_phot_waves_thru (waves_thru)
   );
 
   // Per-channel tuning and detection hardware
@@ -186,7 +186,7 @@ module dut (
 
       adc #(
           .ADC_WIDTH(`ADC_WIDTH),
-          .FullScaleRange(1.0)
+          .FullScaleRange(1000.0)
       ) adc_drop (
           .i_ana(o_pwr_drop[ch]),
           .o_dig(o_adc_drop[ch])
@@ -222,15 +222,15 @@ module dut (
           .i_dig_ring_tune_stride(i_dig_ring_tune_stride[ch]),
 
           .ctrl_arb_if(ctrl_arb_if[ch]),
-          .search_if(search_if[ch])
+          .search_if  (search_if[ch])
       );
 
-      assign search_if[ch].trig_val  = i_dig_search_trig_val[ch];
-      assign search_if[ch].peaks_rdy = i_dig_search_peaks_rdy[ch];
-      assign o_dig_search_peaks_val[ch] = search_if[ch].peaks_val;
-      assign o_dig_ring_tune_peaks[ch] = search_if[ch].ring_tune_peaks;
-      assign o_dig_pwr_detected_peaks[ch] = search_if[ch].pwr_peaks;
-      assign o_dig_ring_tune_peaks_cnt[ch] = search_if[ch].peaks_cnt;
+      assign search_if[ch].trig_val         = i_dig_search_trig_val[ch];
+      assign search_if[ch].peaks_rdy        = i_dig_search_peaks_rdy[ch];
+      assign o_dig_search_peaks_val[ch]     = search_if[ch].peaks_val;
+      assign o_dig_ring_tune_peaks[ch]      = search_if[ch].ring_tune_peaks;
+      assign o_dig_pwr_detected_peaks[ch]   = search_if[ch].pwr_peaks;
+      assign o_dig_ring_tune_peaks_cnt[ch]  = search_if[ch].peaks_cnt;
 
       assign o_mon_peak_commit[ch]          = search_if[ch].mon_peak_commit;
       assign o_mon_search_active_update[ch] = search_if[ch].mon_search_active_update;
@@ -238,8 +238,8 @@ module dut (
       assign o_mon_ring_tune[ch]            = search_if[ch].mon_ring_tune;
       assign o_mon_state[ch]                = search_if[ch].mon_state;
 
-      assign o_dig_pwr_drop_detected[ch]   = pwr_detect_if[ch].detect_data;
-      assign o_dig_pwr_drop_detect_val[ch] = pwr_detect_if[ch].detect_val;
+      assign o_dig_pwr_drop_detected[ch]    = pwr_detect_if[ch].detect_data;
+      assign o_dig_pwr_drop_detect_val[ch]  = pwr_detect_if[ch].detect_val;
     end
   endgenerate
 

@@ -2,11 +2,11 @@
 #include "utils/sweep.hpp"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
+#include <array>
 #include <csv2/writer.hpp>
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <array>
 
 class SearchPhyMonitor {
 public:
@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
   };
 
   // DUT initialization
-  dut->i_pwr = 1.0;
+  dut->i_pwr = 1000.0;
   dut->i_wvl_ls[0] = 1300.0;
   dut->i_wvl_ls[1] = 1302.0;
 
@@ -222,7 +222,8 @@ int main(int argc, char **argv) {
   }
 
   for (size_t r = 0; r < kNumRings; ++r) {
-    search_monitor[r].write_csv("search_waveform_ring" + std::to_string(r) + ".csv");
+    search_monitor[r].write_csv("search_waveform_ring" + std::to_string(r) +
+                                ".csv");
   }
 
   // Clean up
