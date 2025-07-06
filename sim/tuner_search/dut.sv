@@ -210,7 +210,7 @@ module dut (
       .i_clk(i_clk),
       .i_rst(i_rst),
       .pwr_detect_if(pwr_detect_if),
-      .arb_if(ctrl_arb_if),
+      .ctrl_arb_if(ctrl_arb_if),
       .o_dig_afe_ring_tune(dac_tune),
       .i_afe_ring_tune_rdy(1'b1),
       .o_afe_ring_tune_val()
