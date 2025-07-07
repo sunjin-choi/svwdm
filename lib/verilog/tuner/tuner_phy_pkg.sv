@@ -3,7 +3,6 @@
 `define TUNER_PHY_PKG_SV
 
 package tuner_phy_pkg;
-  // FIXME: nested pkg support should be added to cmake build system
   import tuner_pkg::*;
   // Actual tuner_phy_pkg package contents
   // ----------------------------------------------------------------------
