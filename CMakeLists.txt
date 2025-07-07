@@ -57,6 +57,7 @@ message(STATUS "Verilog sim directory: ${VERILOG_SIM_DIR}")
 
 # Setup environment
 define_verilator_environment()
+include(VerilogPackages)
 
 # Subdirectories for modular build
 

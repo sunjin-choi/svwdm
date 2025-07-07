@@ -31,6 +31,23 @@ function(sort_verilog_sources OUT_LIST IN_LIST_VAR)
     endif()
   endforeach()
 
+  # Ensure deterministic ordering of package files
+  list(SORT PKG_SRCS)
+
+  # Reorder package files according to VERILOG_PACKAGE_ORDER if provided
+  if(DEFINED VERILOG_PACKAGE_ORDER)
+    set(_ordered_pkgs "")
+    foreach(_pkg IN LISTS VERILOG_PACKAGE_ORDER)
+      list(FIND PKG_SRCS ${_pkg} _idx)
+      if(NOT _idx EQUAL -1)
+        list(APPEND _ordered_pkgs ${_pkg})
+        list(REMOVE_AT PKG_SRCS ${_idx})
+      endif()
+    endforeach()
+    list(APPEND _ordered_pkgs ${PKG_SRCS})
+    set(PKG_SRCS ${_ordered_pkgs})
+  endif()
+
   set(_tmp_list ${HEADER_SRCS})
   list(APPEND _tmp_list ${PKG_SRCS} ${IF_SRCS} ${OTHER_SRCS})
   set(${OUT_LIST}
