@@ -32,6 +32,9 @@ The `lib/verilog/` directory contains the core SystemVerilog modules for the WDM
     *   `tuner_search_phy.sv`: Sweeps the tuning voltage to find resonance peaks.
     *   `tuner_lock_phy.sv`: Locks the microring's resonance to a specific wavelength.
 
+Package compile order is defined in `cmake/VerilogPackages.cmake`.  Adjust this
+file if additional packages are added or the order needs to change.
+
 ### Simulation (`sim/`)
 
 The `sim/` directory contains the C++ testbenches for simulating the RTL modules. Each subdirectory is a self-contained simulation environment.
