@@ -78,12 +78,12 @@ package tuner_phy_pkg;
   } tuner_phy_search_state_e  /*verilator public*/;
 
   typedef enum logic [`TUNER_STATE_WIDTH-1:0] {
-    LOCK_IDLE,
-    LOCK_INIT,
-    LOCK_DONE,
-    LOCK_TRACK,
-    LOCK_ERROR,
-    LOCK_INTR
+    LOCK_IDLE  = 8'h0,
+    LOCK_INIT  = 8'h1,
+    LOCK_DONE  = 8'h2,
+    LOCK_TRACK = 8'h3,
+    LOCK_ERROR = 8'h4,
+    LOCK_INTR  = 8'h5
   } tuner_phy_lock_state_e  /*verilator public*/;
 
   typedef enum logic [2:0] {
