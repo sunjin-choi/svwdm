@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from typing import List, Dict
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -52,10 +54,10 @@ def main():
     p = argparse.ArgumentParser(
         description="Plot search_monitor CSV with time-series and state timeline"
     )
-    p.add_argument("csv_file", help="Path to CSV (with 'time_ps' and 'state' columns)")
+    p.add_argument("csv_file", help="Path to CSV (with 'time' and 'state' columns)")
     p.add_argument(
-        "--time_col", default="time_ps",
-        help="Name of the time column (default: time_ps)"
+        "--time_col", default="time",
+        help="Name of the time column (default: time)"
     )
     p.add_argument(
         "--state_col", default="state",
