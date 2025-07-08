@@ -166,8 +166,8 @@ module tuner_ctrl_arb_phy #(
       state <= ARB_CTRL_INIT;
     end
     else if (ctrl_refresh) begin
-      /*state <= ARB_CTRL_INIT;*/
-      state <= ARB_CTRL_TUNE;
+      state <= ARB_CTRL_INIT;
+      /*state <= ARB_CTRL_TUNE;*/
     end
     else begin
       state <= state_next;
