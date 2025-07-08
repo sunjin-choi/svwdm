@@ -16,9 +16,8 @@
 `default_nettype none
 // verilog_format: on
 
-// TODO: peaks -> done?
 // TODO: peak code and pwr should be grouped as peaks struct?
-interface tuner_search_if #(
+interface tuner_lock_if #(
     parameter int DAC_WIDTH  = 8,
     parameter int ADC_WIDTH  = 8,
     parameter int NUM_TARGET = 8
@@ -34,18 +33,20 @@ interface tuner_search_if #(
   logic trig_val;
   logic trig_rdy;
 
-  logic peaks_val;
-  logic peaks_rdy;
-  logic [ADC_WIDTH-1:0] pwr_peaks[NUM_TARGET];
-  logic [DAC_WIDTH-1:0] ring_tune_peaks[NUM_TARGET];
-  logic [$clog2(NUM_TARGET)-1:0] peaks_cnt;
+  logic done_rdy;
+  logic done_val;
+
+  logic track_rdy;
+  logic track_val;
 
   // Monitor signals
-  logic mon_peak_commit;
-  logic mon_search_active_update;
-  logic [ADC_WIDTH-1:0] mon_ring_pwr;
-  logic [DAC_WIDTH-1:0] mon_ring_tune;
-  tuner_phy_search_state_e mon_state;
+  /*logic mon_peak_commit;
+   *logic mon_search_active_update;
+   *logic [ADC_WIDTH-1:0] mon_ring_pwr;
+   *logic [DAC_WIDTH-1:0] mon_ring_tune;*/
+  /*logic [ADC_WIDTH-1:0] mon_pwr_peak;
+   *logic [DAC_WIDTH-1:0] mon_ring_tune_peak;*/
+  tuner_phy_lock_state_e mon_state;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -55,58 +56,54 @@ interface tuner_search_if #(
     return trig_val & trig_rdy;
   endfunction
 
-  function automatic logic get_peaks_ack();
-    return peaks_val & peaks_rdy;
+  function automatic logic get_done_ack();
+    return done_val & done_rdy;
+  endfunction
+
+  function automatic logic get_track_ack();
+    return track_val & track_rdy;
   endfunction
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
   // Modports
   // ----------------------------------------------------------------------
-  // Search PHY Controller
+  // Lock PHY Controller
   modport producer(
       input trig_val,
-      input peaks_rdy,
       output trig_rdy,
-      output peaks_val,
-      output pwr_peaks,
-      output ring_tune_peaks,
-      output peaks_cnt,
+      input done_rdy,
+      output done_val,
+      input track_rdy,
+      output track_val,
 
-      // Monitor
-      output mon_peak_commit,
-      output mon_search_active_update,
-      output mon_ring_pwr,
-      output mon_ring_tune,
+      // Monitors
+      /*output mon_pwr_peak,
+       *output mon_ring_tune_peak,*/
       output mon_state,
 
       // APIs
       import get_trig_ack,
-      import get_peaks_ack
+      import get_done_ack,
+      import get_track_ack
   );
 
-  // Search PHY
+  // Lock PHY
   modport consumer(
       input trig_rdy,
-      input peaks_val,
       output trig_val,
-      output peaks_rdy,
-      input pwr_peaks,
-      input ring_tune_peaks,
-      input peaks_cnt,
+      input done_val,
+      output done_rdy,
+      input track_val,
+      output track_rdy,
 
       // APIs
       import get_trig_ack,
-      import get_peaks_ack
+      import get_done_ack,
+      import get_track_ack
   );
 
-  modport monitor(
-      input mon_peak_commit,
-      input mon_search_active_update,
-      input mon_ring_pwr,
-      input mon_ring_tune,
-      input mon_state
-  );
+  modport monitor(input mon_state);
   // ----------------------------------------------------------------------
 
 endinterface

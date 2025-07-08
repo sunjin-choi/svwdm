@@ -26,6 +26,9 @@ interface tuner_ctrl_arb_if #(
 );
   import tuner_phy_pkg::*;
 
+  // ----------------------------------------------------------------------
+  // Signals
+  // ----------------------------------------------------------------------
   // Assume two channels always (Search/Lock Ctrl PHYs)
   // Search ctrl channel: CH_SEARCH (1'b0)
   // Lock ctrl channel: CH_LOCK (1'b1)
@@ -37,7 +40,7 @@ interface tuner_ctrl_arb_if #(
   // Control -> Arbiter: Ring tuning value (to be sent to AFE)
   logic [DAC_WIDTH-1:0] ring_tune;
   // Controller
-  logic                 tune_val    [NumChannel];
+  logic                 tune_val         [NumChannel];
   // Arbiter/AFE
   logic                 tune_rdy;
 
@@ -48,24 +51,15 @@ interface tuner_ctrl_arb_if #(
   logic                 commit_val;
   // Controller
   logic                 commit_rdy       [NumChannel];
+  // ----------------------------------------------------------------------
 
+  // ----------------------------------------------------------------------
   // APIs
-  /*  function automatic logic get_ctrl_ring_tune_ack();
- *    return ring_tune_rdy && ring_tune_val;
- *  endfunction
- *
- *  function automatic logic get_ctrl_commit_ack();
- *    return commit_rdy && commit_val;
- *  endfunction*/
-
+  // ----------------------------------------------------------------------
   function automatic logic get_pwr_detect_active();
     // Assume power detector should be always active when ctrl_active is high
     return ctrl_active;
   endfunction
-
-  // Priority level for multi-channel design
-  // 1. Search takes priority over Lock
-  // 2. If one claims ring_tune, it should also claim commit
 
   function automatic logic get_ctrl_tune_ch_ack(tuner_ctrl_ch_e ch);
     return tune_rdy && tune_val[ch];
@@ -75,6 +69,9 @@ interface tuner_ctrl_arb_if #(
     return commit_rdy[ch] && commit_val;
   endfunction
 
+  // Priority level for multi-channel design
+  // 1. Search takes priority over Lock
+  // 2. If one claims ring_tune, it should also claim commit
   function automatic tuner_ctrl_ch_e select_channel();
     logic search_tune_ack, search_commit_ack;
     logic lock_tune_ack, lock_commit_ack;
@@ -84,6 +81,7 @@ interface tuner_ctrl_arb_if #(
     lock_tune_ack = get_ctrl_tune_ch_ack(CH_LOCK);
     lock_commit_ack = get_ctrl_commit_ch_ack(CH_LOCK);
 
+    // TODO: does this need to be stateful?
     if (search_tune_ack) return CH_SEARCH;
     else if (lock_tune_ack) return CH_LOCK;
     else if (search_commit_ack) return CH_SEARCH;
@@ -98,6 +96,7 @@ interface tuner_ctrl_arb_if #(
   function automatic logic get_ctrl_commit_ack(tuner_ctrl_ch_e ch);
     return get_ctrl_commit_ch_ack(ch) && (select_channel() == ch);
   endfunction
+  // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
   // Modports

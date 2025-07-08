@@ -20,6 +20,7 @@
 // TODO: implement skipping for "false positive" peaks e.g., too shallow
 // TODO: implement an unconditional *interrupt* signal/logic
 // TODO: peaks -> done for ack logic, decide whether to switch to mailbox?
+// TODO: peak code and pwr should be grouped as peaks struct?
 module tuner_search_phy #(
     parameter int DAC_WIDTH = 8,
     parameter int ADC_WIDTH = 8,
@@ -81,6 +82,7 @@ module tuner_search_phy #(
   /*typedef tuner_phy_detect_if_state_e search_active_state_e;*/
 
   // Arbiter I/F state for communication with ring tuner and power detector
+  // This is currently the only substate in SEARCH_ACTIVE
   typedef tuner_phy_ctrl_arb_if_state_e search_active_state_e;
 
   // First half [0:SEARCH_PEAK_WINDOW_HALFSIZE-1]
@@ -369,18 +371,21 @@ module tuner_search_phy #(
   // ----------------------------------------------------------------------
   // SEARCH_ACTIVE - Peak Detector
   // ----------------------------------------------------------------------
+  // TODO: check if saving to the window directly is better, doesn't matter
+  // for search?
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
-      pwr_det_track <= '0;
+      pwr_det_track   <= '0;
       ring_tune_track <= '0;
     end
     else if (search_refresh) begin
-      pwr_det_track <= '0;  // Initialize power detected track
+      // TODO: misleading information? pwr is not 0 at the tune_start
+      pwr_det_track   <= '0;  // Initialize power detected track
       ring_tune_track <= i_dig_ring_tune_start;  // Start from the initial tune code
     end
     else if (search_active_update) begin
       // Receive the committed ring tune and power from the controller arbiter
-      pwr_det_track <= ctrl_arb_if.pwr_commit;
+      pwr_det_track   <= ctrl_arb_if.pwr_commit;
       ring_tune_track <= ctrl_arb_if.ring_tune_commit;
     end
   end
@@ -394,22 +399,22 @@ module tuner_search_phy #(
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
       ring_tune_track_win[0] <= '0;
-      pwr_det_track_win[0] <= '0;
-      pwr_inc_track_win[0] <= '0;
-      pwr_dec_track_win[0] <= '0;
+      pwr_det_track_win[0]   <= '0;
+      pwr_inc_track_win[0]   <= '0;
+      pwr_dec_track_win[0]   <= '0;
     end
     // Initialize the first window entry at search_init
     else if (search_refresh) begin
       ring_tune_track_win[0] <= '0;
-      pwr_det_track_win[0] <= '0;  // Initialize power detected track
-      pwr_inc_track_win[0] <= '0;
-      pwr_dec_track_win[0] <= '0;
+      pwr_det_track_win[0]   <= '0;  // Initialize power detected track
+      pwr_inc_track_win[0]   <= '0;
+      pwr_dec_track_win[0]   <= '0;
     end
     else if (search_active_update) begin
       ring_tune_track_win[0] <= ring_tune_track;
-      pwr_det_track_win[0] <= pwr_det_track;
-      pwr_inc_track_win[0] <= pwr_incremented;
-      pwr_dec_track_win[0] <= pwr_decremented;
+      pwr_det_track_win[0]   <= pwr_det_track;
+      pwr_inc_track_win[0]   <= pwr_incremented;
+      pwr_dec_track_win[0]   <= pwr_decremented;
     end
   end
 
@@ -418,22 +423,22 @@ module tuner_search_phy #(
       always_ff @(posedge i_clk or posedge i_rst) begin
         if (i_rst) begin
           ring_tune_track_win[j] <= '0;
-          pwr_det_track_win[j] <= '0;
-          pwr_inc_track_win[j] <= '0;
-          pwr_dec_track_win[j] <= '0;
+          pwr_det_track_win[j]   <= '0;
+          pwr_inc_track_win[j]   <= '0;
+          pwr_dec_track_win[j]   <= '0;
         end
         // Initialize the first window entry at search_init
         else if (search_refresh) begin
           ring_tune_track_win[j] <= '0;
-          pwr_det_track_win[j] <= '0;  // Initialize power detected track
-          pwr_inc_track_win[j] <= '0;
-          pwr_dec_track_win[j] <= '0;
+          pwr_det_track_win[j]   <= '0;  // Initialize power detected track
+          pwr_inc_track_win[j]   <= '0;
+          pwr_dec_track_win[j]   <= '0;
         end
         else if (search_active_update) begin
           ring_tune_track_win[j] <= ring_tune_track_win[j-1];
-          pwr_det_track_win[j] <= pwr_det_track_win[j-1];
-          pwr_inc_track_win[j] <= pwr_inc_track_win[j-1];
-          pwr_dec_track_win[j] <= pwr_dec_track_win[j-1];
+          pwr_det_track_win[j]   <= pwr_det_track_win[j-1];
+          pwr_inc_track_win[j]   <= pwr_inc_track_win[j-1];
+          pwr_dec_track_win[j]   <= pwr_dec_track_win[j-1];
         end
       end
     end
