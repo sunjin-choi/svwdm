@@ -189,7 +189,35 @@ int main(int argc, char **argv) {
     dut->i_cfg_ring_tune_start = 120;
     advance_clk();
     dut->i_lock_trig_val = 0;
-    for (int i = 0; i < 1000; ++i) {
+    // wait for lock to become active
+    while (dut->o_lock_state != 2) {
+      advance_clk();
+    }
+
+    // Trigger interrupt by dropping intr_rdy
+    dut->i_lock_intr_rdy = 0;
+    advance_clk();
+    dut->i_lock_intr_rdy = 1;
+
+    // wait until intr state entered
+    while (dut->o_lock_state != 3) {
+      advance_clk();
+    }
+
+    // resume after few cycles
+    for (int i = 0; i < 10; ++i) {
+      advance_clk();
+    }
+    dut->i_lock_resume_val = 1;
+    advance_clk();
+    dut->i_lock_resume_val = 0;
+
+    // wait back to active
+    while (dut->o_lock_state != 2) {
+      advance_clk();
+    }
+
+    for (int i = 0; i < 100; ++i) {
       advance_clk();
     }
   };
@@ -200,7 +228,8 @@ int main(int argc, char **argv) {
   dut->i_search_trig_val = 0;
   dut->i_search_done_rdy = 0;
   dut->i_lock_trig_val = 0;
-  dut->i_lock_track_rdy = 1;
+  dut->i_lock_intr_rdy = 1;
+  dut->i_lock_resume_val = 0;
   dut->i_cfg_ring_pwr_peak_ratio = 8;
 
   dut->i_clk = 0;

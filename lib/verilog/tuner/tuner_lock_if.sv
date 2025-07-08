@@ -33,8 +33,11 @@ interface tuner_lock_if #(
   logic trig_val;
   logic trig_rdy;
 
-  logic track_rdy;
-  logic track_val;
+
+  logic intr_val;
+  logic intr_rdy;
+  logic resume_val;
+  logic resume_rdy;
 
   // Monitor signals
   /*logic mon_peak_commit;
@@ -53,8 +56,12 @@ interface tuner_lock_if #(
     return trig_val & trig_rdy;
   endfunction
 
-  function automatic logic get_track_ack();
-    return track_val & track_rdy;
+  function automatic logic get_intr_ack();
+    return intr_val & intr_rdy;
+  endfunction
+
+  function automatic logic get_resume_ack();
+    return resume_val & resume_rdy;
   endfunction
   // ----------------------------------------------------------------------
 
@@ -65,8 +72,10 @@ interface tuner_lock_if #(
   modport producer(
       input trig_val,
       output trig_rdy,
-      input track_val,
-      output track_rdy,
+      output intr_val,
+      input intr_rdy,
+      input resume_val,
+      output resume_rdy,
 
       // Monitors
       /*output mon_pwr_peak,
@@ -75,19 +84,23 @@ interface tuner_lock_if #(
 
       // APIs
       import get_trig_ack,
-      import get_track_ack
+      import get_intr_ack,
+      import get_resume_ack
   );
 
   // Lock PHY
   modport consumer(
       input trig_rdy,
       output trig_val,
-      input track_rdy,
-      output track_val,
+      input intr_val,
+      output intr_rdy,
+      output resume_val,
+      input resume_rdy,
 
       // APIs
       import get_trig_ack,
-      import get_track_ack
+      import get_intr_ack,
+      import get_resume_ack
   );
 
   modport monitor(input mon_state);
