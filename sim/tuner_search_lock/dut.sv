@@ -42,8 +42,10 @@ module dut (
     // Lock Interface
     input var  logic i_lock_trig_val,
     output var logic o_lock_trig_rdy,
-    input var  logic i_lock_track_rdy,
-    output var logic o_lock_track_val,
+    input var  logic i_lock_intr_rdy,
+    output var logic o_lock_intr_val,
+    input var  logic i_lock_resume_val,
+    output var logic o_lock_resume_rdy,
 
     // output signals
     output real o_pwr_thru,
@@ -168,9 +170,9 @@ module dut (
       .NUM_TARGET(`NUM_TARGET),
       .SEARCH_PEAK_WINDOW_HALFSIZE(4),
       .SEARCH_PEAK_THRES(2),
-      .LOCK_DELTA_WINDOW_SIZE(4),
+      .LOCK_DELTA_WINDOW_SIZE(2),
       .LOCK_PWR_DELTA_THRES(2),
-      .LOCK_TUNE_STRIDE(0)
+      .LOCK_TUNE_STRIDE(1)
   ) tuner_phy_inst (
       .i_clk(i_clk),
       .i_rst(i_rst),
@@ -208,8 +210,10 @@ module dut (
   // ----------------------------------------------------------------------
   assign lock_if.trig_val = i_lock_trig_val;
   assign o_lock_trig_rdy = lock_if.trig_rdy;
-  assign lock_if.track_rdy = i_lock_track_rdy;
-  assign o_lock_track_val = lock_if.track_val;
+  assign o_lock_intr_val = lock_if.intr_val;
+  assign lock_if.intr_rdy = i_lock_intr_rdy;
+  assign lock_if.resume_val = i_lock_resume_val;
+  assign o_lock_resume_rdy = lock_if.resume_rdy;
   // ----------------------------------------------------------------------
 
   assign o_adc_thru = adc_thru;

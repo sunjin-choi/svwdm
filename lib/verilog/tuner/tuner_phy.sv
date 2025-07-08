@@ -27,7 +27,7 @@ module tuner_phy #(
     parameter int SEARCH_PEAK_WINDOW_HALFSIZE = 4,
     parameter int SEARCH_PEAK_THRES = 2,
     // Lock PHY Parameters
-    parameter int LOCK_DELTA_WINDOW_SIZE = 4,
+    parameter int LOCK_DELTA_WINDOW_SIZE = 2,
     parameter int LOCK_PWR_DELTA_THRES = 2,
     parameter int LOCK_TUNE_STRIDE = 0
 ) (

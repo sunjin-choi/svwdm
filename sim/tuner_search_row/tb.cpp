@@ -22,7 +22,7 @@ public:
       : dut_(dut), ring_(ring), sample_interval_(interval) {}
 
   void sample(vluint64_t time, bool force, bool print) {
-    bool do_sample = force || ((interval_count_ & sample_interval_) == 0);
+    bool do_sample = force || ((interval_count_ % sample_interval_) == 0);
 
     if (do_sample) {
       search_record_t r;
@@ -161,6 +161,8 @@ int main(int argc, char **argv) {
 
   auto search_routine = [&](size_t ring, int start, int end, int stride = 1,
                             bool print = true) {
+    assert(end >= start &&
+           "search_routine: end must be greater than or equal to start");
     dut->i_dig_ring_tune_start[ring] = start;
     dut->i_dig_ring_tune_end[ring] = end;
     dut->i_dig_ring_tune_stride[ring] = stride;

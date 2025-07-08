@@ -34,7 +34,7 @@ module tuner_lock_phy #(
     parameter int ADC_WIDTH = 8,
     parameter int LOCK_DELTA_WINDOW_SIZE = 4,
     parameter int LOCK_PWR_DELTA_THRES = 2,
-    parameter int LOCK_TUNE_STRIDE = 0
+    parameter int LOCK_TUNE_STRIDE = 1
     /*parameter logic [DAC_WIDTH-1:0] DZ_SIZE = 4*/
 ) (
     input var logic i_clk,
@@ -97,6 +97,8 @@ module tuner_lock_phy #(
   logic lock_resume_fire;
   logic lock_restore;
 
+  logic intr_pending;
+
   logic lock_refresh;
 
   logic is_lock_active;
@@ -139,22 +141,36 @@ module tuner_lock_phy #(
   // Assigns
   // ----------------------------------------------------------------------
   /*assign pwr_tgt = i_dig_pwr_peak * i_cfg_ring_pwr_peak_ratio / 16;*/
-  assign ring_tune_step = (1 << LOCK_TUNE_STRIDE);
+  assign ring_tune_step   = (1 << LOCK_TUNE_STRIDE);
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
   // State Machine
   // ----------------------------------------------------------------------
   assign lock_if.trig_rdy = (state == LOCK_IDLE);
-  assign lock_trig_fire = lock_if.get_trig_ack();
+  assign lock_trig_fire   = lock_if.get_trig_ack();
 
-  // FIXME: track handshake should be removed -- this is weird logic
-  // Interrupt is triggered by controller pulling track_rdy low
-  assign lock_intr_fire = (state == LOCK_ACTIVE) && !lock_if.track_rdy;
-  // Resume is triggered by controller pulling track_rdy or trig_val high
-  assign lock_resume_fire = (state == LOCK_INTR) && (lock_if.track_rdy || lock_if.trig_val);
-  // Restore to active state only if track_rdy is high and trig_val is low
-  assign lock_restore = lock_if.track_rdy && !lock_if.trig_val;
+  // Interrupt handshake
+  always_ff @(posedge i_clk or posedge i_rst) begin
+    if (i_rst) begin
+      intr_pending <= 1'b0;
+    end
+    else if (state != LOCK_ACTIVE) begin
+      intr_pending <= 1'b0;
+    end
+    else begin
+      if (!lock_if.intr_rdy) intr_pending <= 1'b1;
+      else if (lock_if.get_intr_ack()) intr_pending <= 1'b0;
+    end
+  end
+
+  assign lock_if.intr_val = intr_pending;
+  assign lock_intr_fire = (state == LOCK_ACTIVE) && lock_if.get_intr_ack();
+
+  // Resume handshake
+  assign lock_if.resume_rdy = (state == LOCK_INTR);
+  assign lock_resume_fire = (state == LOCK_INTR) && lock_if.get_resume_ack();
+  assign lock_restore = 1'b0;
 
   // Cleans up registers
   assign lock_refresh = state == LOCK_INIT;
@@ -169,22 +185,18 @@ module tuner_lock_phy #(
     end
   end
 
-  // TODO: implement lock_intr_fire and lock_resume_fire with the
-  // corresponding handshake (intr/resume) signals
   always_comb begin
     state_next = state;
     case (state)
       LOCK_IDLE: if (lock_trig_fire) state_next = LOCK_INIT;
       LOCK_INIT: state_next = LOCK_ACTIVE;
       LOCK_ACTIVE: if (lock_intr_fire) state_next = LOCK_INTR;
-      LOCK_INTR: if (lock_resume_fire) state_next = lock_restore ? LOCK_ACTIVE : LOCK_INIT;
+      LOCK_INTR: if (lock_resume_fire) state_next = lock_restore ? LOCK_ACTIVE : LOCK_IDLE;
       default: state_next = LOCK_IDLE;
     endcase
   end
 
   assign lock_if.mon_state = state;
-  // FIXME: track handshake should be removed -- this is weird logic
-  assign lock_if.track_rdy = (state == LOCK_ACTIVE);
   /*assign lock_if.done_val  = 1'b0;  // Not used in this implementation*/
   // ----------------------------------------------------------------------
 
