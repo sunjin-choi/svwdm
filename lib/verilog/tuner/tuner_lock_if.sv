@@ -33,9 +33,6 @@ interface tuner_lock_if #(
   logic trig_val;
   logic trig_rdy;
 
-  logic done_rdy;
-  logic done_val;
-
   logic track_rdy;
   logic track_val;
 
@@ -56,10 +53,6 @@ interface tuner_lock_if #(
     return trig_val & trig_rdy;
   endfunction
 
-  function automatic logic get_done_ack();
-    return done_val & done_rdy;
-  endfunction
-
   function automatic logic get_track_ack();
     return track_val & track_rdy;
   endfunction
@@ -72,10 +65,8 @@ interface tuner_lock_if #(
   modport producer(
       input trig_val,
       output trig_rdy,
-      input done_rdy,
-      output done_val,
-      input track_rdy,
-      output track_val,
+      input track_val,
+      output track_rdy,
 
       // Monitors
       /*output mon_pwr_peak,
@@ -84,7 +75,6 @@ interface tuner_lock_if #(
 
       // APIs
       import get_trig_ack,
-      import get_done_ack,
       import get_track_ack
   );
 
@@ -92,14 +82,11 @@ interface tuner_lock_if #(
   modport consumer(
       input trig_rdy,
       output trig_val,
-      input done_val,
-      output done_rdy,
-      input track_val,
-      output track_rdy,
+      input track_rdy,
+      output track_val,
 
       // APIs
       import get_trig_ack,
-      import get_done_ack,
       import get_track_ack
   );
 

@@ -33,7 +33,8 @@ module tuner_lock_phy #(
     parameter int DAC_WIDTH = 8,
     parameter int ADC_WIDTH = 8,
     parameter int LOCK_DELTA_WINDOW_SIZE = 4,
-    parameter int LOCK_PWR_DELTA_THRES = 2
+    parameter int LOCK_PWR_DELTA_THRES = 2,
+    parameter int LOCK_TUNE_STRIDE = 0
     /*parameter logic [DAC_WIDTH-1:0] DZ_SIZE = 4*/
 ) (
     input var logic i_clk,
@@ -41,40 +42,22 @@ module tuner_lock_phy #(
 
     // lock config
     //    // expected to set start by offsetting the peak target to red-side
-    //    input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_start,
+    input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_start,
     //    // end is not used if local search is not enabled
     //    input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_end,
     //    /*input var logic [ADC_WIDTH-1:0] i_cfg_ring_pwr_peak,*/
     input var logic [3:0] i_cfg_ring_pwr_peak_ratio,
 
-    input var logic [DAC_WIDTH-1:0] i_dig_pwr_peak,
+    input var logic [ADC_WIDTH-1:0] i_dig_pwr_peak,
     input var logic [DAC_WIDTH-1:0] i_dig_ring_tune_peak,
 
     /*input var logic i_cfg_search_en,*/
 
-    /*// Power Detector Interface
-     *tuner_pwr_detect_if.consumer pwr_detect_if,*/
-
     // Controller Arbiter Interface
     tuner_ctrl_arb_if.producer ctrl_arb_if,
 
-    //    // Search Interface for local search
-    //    tuner_search_if.consumer search_if,
-
     // Tuner Controller Interface
-    //    // consumer of trigger
-    //    input var logic i_dig_lock_trig_val,
-    //    output logic o_dig_lock_trig_rdy,
-    //
-    //    // producer of lock done
-    //    output logic o_dig_lock_done_val,
-    //    input var logic i_dig_lock_done_rdy,
-    //
-    //    // consumer of track
-    //    input var logic i_dig_lock_active_val,
-    //    output logic o_dig_lock_active_rdy
-
-    tuner_lock_if.consumer lock_if
+    tuner_lock_if.producer lock_if
 );
   import tuner_phy_pkg::*;
 
@@ -109,17 +92,16 @@ module tuner_lock_phy #(
 
   lock_track_state_e lock_track_state, lock_track_state_next;
 
-  /*logic lock_trig_fire;
-   *logic lock_search_done;*/
-  /*logic lock_active_fire;*/
-  logic lock_active_stop;
+  logic lock_trig_fire;
+  logic lock_intr_fire;
+  logic lock_resume_fire;
+  logic lock_restore;
 
   logic lock_refresh;
 
-  /*logic lock_search_error;*/
-
   logic is_lock_active;
   logic lock_active_update;
+  logic lock_delta_update;
 
   // delta window counter; delta_cnt count until LOCK_DELTA_WINDOW_SIZE + 1
   logic [$clog2(LOCK_DELTA_WINDOW_SIZE):0] delta_cnt;
@@ -129,34 +111,55 @@ module tuner_lock_phy #(
   logic [DAC_WIDTH-1:0] ring_tune_next;
   logic [DAC_WIDTH-1:0] ring_tune_prev;
   logic [DAC_WIDTH-1:0] ring_tune_next_bb;
+  logic [DAC_WIDTH-1:0] ring_tune_base;
+  logic [DAC_WIDTH-1:0] ring_tune_delta;
+  logic [DAC_WIDTH-1:0] ring_tune_base_next;
+  logic [DAC_WIDTH-1:0] ring_tune_delta_next;
+  logic [DAC_WIDTH-1:0] ring_tune_base_decided;
 
   // For now, only save a single peak information
-  logic [DAC_WIDTH-1:0] pwr_peak;
+  logic [ADC_WIDTH-1:0] pwr_peak;
   logic [DAC_WIDTH-1:0] ring_tune_peak;
-  logic [DAC_WIDTH-1:0] pwr_tgt;
+  logic [ADC_WIDTH-1:0] pwr_tgt;
+
+  logic [DAC_WIDTH-1:0] ring_tune_track_win[LOCK_DELTA_WINDOW_SIZE];
+  logic [ADC_WIDTH-1:0] pwr_det_track_win[LOCK_DELTA_WINDOW_SIZE];
+  logic [LOCK_DELTA_WINDOW_SIZE-1:0] pwr_inc_track_win;
+  logic [LOCK_DELTA_WINDOW_SIZE-1:0] pwr_dec_track_win;
+
+  logic pwr_incremented_vote;
+  logic pwr_decremented_vote;
+
+  logic is_ctrl_active_state, is_update_state, is_tune_state;
+  logic tune_fire, commit_fire;
+  logic tune_compute, tune_compute_done, update_commit_done;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
   // Assigns
   // ----------------------------------------------------------------------
-  // FIXME: lightweight alternative
-  assign ring_pwr_tgt = i_dig_ring_pwr_peak * i_dig_ring_pwr_peak_ratio / 16;
-  /*assign ring_tune_step = (1 << i_dig_ring_tune_stride);*/
+  /*assign pwr_tgt = i_dig_pwr_peak * i_cfg_ring_pwr_peak_ratio / 16;*/
+  assign ring_tune_step = (1 << LOCK_TUNE_STRIDE);
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
   // State Machine
   // ----------------------------------------------------------------------
-  assign o_dig_lock_trig_rdy = (state == LOCK_IDLE);
-  assign lock_trig_fire = o_dig_lock_trig_rdy && i_dig_lock_trig_val;
+  assign lock_if.trig_rdy = (state == LOCK_IDLE);
+  assign lock_trig_fire = lock_if.get_trig_ack();
 
+  // FIXME: track handshake should be removed -- this is weird logic
+  // Interrupt is triggered by controller pulling track_rdy low
+  assign lock_intr_fire = (state == LOCK_ACTIVE) && !lock_if.track_rdy;
+  // Resume is triggered by controller pulling track_rdy or trig_val high
+  assign lock_resume_fire = (state == LOCK_INTR) && (lock_if.track_rdy || lock_if.trig_val);
+  // Restore to active state only if track_rdy is high and trig_val is low
+  assign lock_restore = lock_if.track_rdy && !lock_if.trig_val;
+
+  // Cleans up registers
   assign lock_refresh = state == LOCK_INIT;
 
-  /*State Machine
-    *LOCK_IDLE: Waiting for init trigger
-    *LOCK_INIT: Initialize registers in a single cycle and routes to SEARCH/TRACK state
-    *LOCK_ACTIVE: Active tracking state
-    *LOCK_ERROR: Error state*/
+  // State Machine
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
       state <= LOCK_IDLE;
@@ -166,68 +169,24 @@ module tuner_lock_phy #(
     end
   end
 
+  // TODO: implement lock_intr_fire and lock_resume_fire with the
+  // corresponding handshake (intr/resume) signals
   always_comb begin
+    state_next = state;
     case (state)
-      LOCK_IDLE: state_next = lock_trig_fire ? LOCK_INIT : state;
+      LOCK_IDLE: if (lock_trig_fire) state_next = LOCK_INIT;
       LOCK_INIT: state_next = LOCK_ACTIVE;
-      /*LOCK_INIT: state_next = LOCK_SEARCH;*/
-      /*LOCK_SEARCH:
-       *state_next = lock_search_done ? (lock_search_error ? LOCK_ERROR : LOCK_DONE) : state;
-       *LOCK_DONE: state_next = lock_active_fire ? LOCK_ACTIVE : state;*/
-      /*LOCK_ACTIVE: state_next = lock_active_error ? LOCK_ERROR : state;*/
-      LOCK_ACTIVE: state_next = lock_intr_fire ? LOCK_INTR : state;
-      LOCK_INTR: state_next = lock_resume_fire ? (lock_restore ? LOCK_ACTIVE : LOCK_INIT) : state;
-      /*LOCK_ERROR: state_next = state;*/
-      default: state_next = state;
+      LOCK_ACTIVE: if (lock_intr_fire) state_next = LOCK_INTR;
+      LOCK_INTR: if (lock_resume_fire) state_next = lock_restore ? LOCK_ACTIVE : LOCK_INIT;
+      default: state_next = LOCK_IDLE;
     endcase
   end
-  // ----------------------------------------------------------------------
 
+  assign lock_if.mon_state = state;
+  // FIXME: track handshake should be removed -- this is weird logic
+  assign lock_if.track_rdy = (state == LOCK_ACTIVE);
+  /*assign lock_if.done_val  = 1'b0;  // Not used in this implementation*/
   // ----------------------------------------------------------------------
-  // Power Detector Interface
-  // ----------------------------------------------------------------------
-  // Simplified consumer logic
-  assign is_lock_active = (state == LOCK_ACTIVE);
-
-  assign pwr_detect_if.pwr_detect_active = is_lock_active;
-  assign pwr_detect_if.pwr_detect_refresh = !is_lock_active;
-  assign lock_active_update = pwr_detect_if.pwr_detect_update;
-  // ----------------------------------------------------------------------
-
-  // FIXME this should be handled at the global controller
-  //  // ----------------------------------------------------------------------
-  //  // LOCK_SEARCH - Hand-off Global/Local Search to Search PHY
-  //  // ----------------------------------------------------------------------
-  //  // trigger Search PHY at LOCK_SEARCH state and wait for the result
-  //  assign search_if.trig_val = state == LOCK_SEARCH;
-  //  assign search_if.peaks_rdy = state == LOCK_SEARCH;
-  //
-  //  // Should pass the config to the Search PHY
-  //  // For now, reuse Search PHY config? TODO
-  //
-  //  // Flag lock init done when Search PHY is done
-  //  assign lock_search_done = search_if.get_peaks_ack();
-  //  assign lock_search_error = lock_search_done && (search_if.peaks_cnt == 0);
-  //
-  //  // when the peak search results are valid, save to the register
-  //  // For now, commit the first peak FIXME
-  //  always_ff @(posedge i_clk or posedge i_rst) begin
-  //    if (i_rst) begin
-  //      pwr_peak <= '0;
-  //      ring_tune_peak <= '0;
-  //    end
-  //    else if (lock_refresh) begin
-  //      pwr_peak <= '0;
-  //      ring_tune_peak <= '0;
-  //    end
-  //    else begin
-  //      if (lock_search_done && !lock_search_error) begin
-  //        pwr_peak <= search_if.pwr_peaks[0];
-  //        ring_tune_peak <= search_if.ring_tune_peaks[0];
-  //      end
-  //    end
-  //  end
-  //  // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
   // LOCK_ACTIVE - Ring Tuning
@@ -236,10 +195,9 @@ module tuner_lock_phy #(
     if (i_rst) begin
       ring_tune <= '0;
     end
-    /*else if (lock_refresh) begin
-     *  ring_tune <= i_dig_ring_tune_start;
-     *  ring_tune_prev <= i_dig_ring_tune_start;  // Initialize previous tune code
-     *end*/
+    else if (lock_refresh) begin
+      ring_tune <= i_cfg_ring_tune_start;
+    end
     else if (lock_active_update) begin
       ring_tune <= ring_tune_next;
     end
@@ -258,6 +216,9 @@ module tuner_lock_phy #(
 
   assign tune_fire = ctrl_arb_if.get_ctrl_tune_ack(CH_LOCK);
   assign commit_fire = ctrl_arb_if.get_ctrl_commit_ack(CH_LOCK);
+
+  // All update logics at LOCK_ACTIVE are triggered at commit_fire
+  assign lock_active_update = is_ctrl_active_state && commit_fire;
 
   // Internal state for controller arbiter
   always_ff @(posedge i_clk or posedge i_rst) begin
@@ -284,26 +245,22 @@ module tuner_lock_phy #(
     end
   end
 
-  assign ctrl_arb_if.ctrl_active = is_ctrl_active_state;
-  assign ctrl_arb_if.ctrl_refresh = lock_refresh;
+  /*assign ctrl_arb_if.ctrl_active = is_ctrl_active_state;
+   *assign ctrl_arb_if.ctrl_refresh = lock_refresh;*/
+  assign ctrl_arb_if.ctrl_active[CH_LOCK] = is_ctrl_active_state;
+  assign ctrl_arb_if.ctrl_refresh[CH_LOCK] = lock_refresh;
 
   assign ctrl_arb_if.tune_val[CH_LOCK] = is_tune_state && tune_compute_done;
 
   // commit is instantaneous
   assign update_commit_done = is_update_state;
   assign ctrl_arb_if.commit_rdy[CH_LOCK] = is_update_state && update_commit_done;
-
-  /*assign lock_active_update = is_ctrl_active_state && ctrl_arb_if.get_ctrl_commit_ack(CH_LOCK);*/
-  assign lock_active_update = is_ctrl_active_state && commit_fire;
-  // compute start at the next cycle after commit
-  /*assign tune_compute_start = lock_active_update;*/
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
   // LOCK_ACTIVE - Ring Tuning
   // ----------------------------------------------------------------------
   // Step ring tuner at pwr detect (let pwr detector to deal with analog delays)
-  assign ring_tune_step = (1 << i_dig_ring_tune_stride);
   assign tune_compute = is_tune_state && !tune_compute_done;
 
   // Update the ring tune base and delta
@@ -313,7 +270,7 @@ module tuner_lock_phy #(
       ring_tune_delta <= '0;
     end
     else if (lock_refresh) begin
-      ring_tune_base  <= i_dig_ring_tune_start;
+      ring_tune_base  <= i_cfg_ring_tune_start;
       ring_tune_delta <= '0;
     end
     else if (tune_compute) begin
@@ -341,11 +298,12 @@ module tuner_lock_phy #(
 
   // Decide the next ring tune code based on the current detection
   always_comb begin
+    ring_tune_base_next  = ring_tune_base;
+    ring_tune_delta_next = ring_tune_delta;
     case (lock_track_state)
       TRACK_DELTA: begin
         // Generate ramp
         ring_tune_delta_next = ring_tune_delta + ring_tune_step;
-        ring_tune_base_next  = ring_tune_base;
       end
       TRACK_DETECT: begin
         // Update the track code based on the slope detection
@@ -353,16 +311,11 @@ module tuner_lock_phy #(
         ring_tune_base_next  = ring_tune_base_decided;
         ring_tune_delta_next = '0;  // Reset ramp after update
       end
-      default: begin
-        ring_tune_base_next  = ring_tune_base;
-        ring_tune_delta_next = ring_tune_delta;
-      end
     endcase
   end
 
-  /*assign o_dig_ring_tune = ring_tune;*/
-  assign ring_tune = ring_tune_base + ring_tune_delta;
-  assign ctrl_arb_if.ring_tune = ring_tune;
+  assign ring_tune_next = ring_tune_base + ring_tune_delta;
+  assign ctrl_arb_if.ring_tune[CH_LOCK] = ring_tune;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -434,8 +387,12 @@ module tuner_lock_phy #(
     else if (lock_active_update) begin
       lock_track_state <= lock_track_state_next;
       // Increment delta counter only in TRACK_DELTA state
-      if (lock_track_state == TRACK_DELTA) delta_cnt <= delta_cnt + 1;
-      else delta_cnt <= '0;
+      if (lock_track_state == TRACK_DELTA) begin
+        delta_cnt <= delta_cnt + 1;
+      end
+      else begin
+        delta_cnt <= '0;
+      end
     end
   end
 
@@ -459,10 +416,11 @@ module tuner_lock_phy #(
   // If power incremented, can move further to RED, if decremented, then move to BLUE
   // If both are false, it is stable, so stay at the current ring_tune_base
   always_comb begin
+    ring_tune_base_decided = ring_tune_base;
     case ({
       pwr_incremented_vote, pwr_decremented_vote
     })
-      2'b00: ring_tune_base_decided = ring_tune_base;  // No change
+      2'b00: ring_tune_base_decided = ring_tune_base + ring_tune_step;  // No change
       2'b01:
       // Power decreased, move to BLUE side
       ring_tune_base_decided = ring_tune_base - ring_tune_step;
@@ -471,10 +429,8 @@ module tuner_lock_phy #(
       ring_tune_base_decided = ring_tune_base + ring_tune_step;
       2'b11:
       // For now, ignore the case where both are true
+      // This could be an error condition
       ring_tune_base_decided = ring_tune_base;
-      default: begin
-        ring_tune_base_decided = ring_tune_base;
-      end
     endcase
   end
   // ----------------------------------------------------------------------
@@ -494,7 +450,7 @@ module tuner_lock_phy #(
 
   // ----------------------------------------------------------------------
 
+
 endmodule
 
 `default_nettype wire
-

@@ -83,8 +83,10 @@ module tuner_ctrl_arb_phy #(
   assign afe_tune_fire = i_afe_ring_tune_rdy && o_afe_ring_tune_val;
   /*assign ctrl_ring_tune_fire = i_ctrl_ring_tune_val && o_ctrl_ring_tune_rdy;*/
   /*assign ctrl_commit_fire = i_ctrl_commit_rdy && o_ctrl_commit_val;*/
-  assign ctrl_tune_fire = ctrl_arb_if.get_ctrl_tune_ack(CH_SEARCH);  // FIXME
-  assign ctrl_commit_fire = ctrl_arb_if.get_ctrl_commit_ack(CH_SEARCH);  // FIXME
+  /*assign ctrl_tune_fire = ctrl_arb_if.get_ctrl_tune_ack(CH_SEARCH);  // FIXME*/
+  /*assign ctrl_commit_fire = ctrl_arb_if.get_ctrl_commit_ack(CH_SEARCH);  // FIXME*/
+  assign ctrl_tune_fire = ctrl_arb_if.any_ctrl_tune_ack();
+  assign ctrl_commit_fire = ctrl_arb_if.any_ctrl_commit_ack();
 
   // Let high-level ctrl PHY to update the tuner code and fire
   // High-level Control (producer) -> Ctrl PHY (middle) -> Tuner (consumer)
@@ -144,8 +146,10 @@ module tuner_ctrl_arb_phy #(
   /*assign pwr_detect_if.pwr_detect_active = i_ctrl_active;*/
   /*assign pwr_detect_if.pwr_detect_refresh = i_ctrl_refresh;*/
   assign pwr_detect_if.pwr_detect_active = ctrl_arb_if.get_pwr_detect_active();
-  assign pwr_detect_if.pwr_detect_refresh = ctrl_arb_if.ctrl_refresh;
-  assign ctrl_refresh = ctrl_arb_if.ctrl_refresh;
+  /*assign pwr_detect_if.pwr_detect_refresh = ctrl_arb_if.ctrl_refresh;*/
+  assign pwr_detect_if.pwr_detect_refresh = ctrl_arb_if.get_ctrl_refresh();
+  /*assign ctrl_refresh = ctrl_arb_if.ctrl_refresh;*/
+  assign ctrl_refresh = ctrl_arb_if.get_ctrl_refresh();
 
   assign pwr_detect_update = pwr_detect_if.pwr_detect_update;
 
@@ -162,7 +166,8 @@ module tuner_ctrl_arb_phy #(
       state <= ARB_CTRL_INIT;
     end
     else if (ctrl_refresh) begin
-      state <= ARB_CTRL_INIT;
+      /*state <= ARB_CTRL_INIT;*/
+      state <= ARB_CTRL_TUNE;
     end
     else begin
       state <= state_next;
@@ -212,7 +217,8 @@ module tuner_ctrl_arb_phy #(
   // Yet consumer (tuner) is also responsible of keeping the previous data,
   // duplicate the logic here for simplicity
   /*assign ring_tune = ring_tune_fire ? i_ctrl_ring_tune : ring_tune_track;*/
-  assign ring_tune = ring_tune_fire ? ctrl_arb_if.ring_tune : ring_tune_track;
+  /*assign ring_tune = ring_tune_fire ? ctrl_arb_if.ring_tune : ring_tune_track;*/
+  assign ring_tune = ring_tune_fire ? ctrl_arb_if.get_ring_tune() : ring_tune_track;
 
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
@@ -231,7 +237,8 @@ module tuner_ctrl_arb_phy #(
   // This is essential for implementing the synchronization logic
   /*assign o_afe_ring_tune_val = i_ctrl_ring_tune_val && (state == ARB_CTRL_TUNE);*/
   /*assign o_ctrl_ring_tune_rdy = i_afe_ring_tune_rdy && (state == ARB_CTRL_TUNE);*/
-  assign o_afe_ring_tune_val = ctrl_arb_if.tune_val[CH_SEARCH] && (state == ARB_CTRL_TUNE); // FIXME
+  /*assign o_afe_ring_tune_val = ctrl_arb_if.tune_val[CH_SEARCH] && (state == ARB_CTRL_TUNE); // FIXME*/
+  assign o_afe_ring_tune_val = ctrl_arb_if.any_ctrl_tune_val() && (state == ARB_CTRL_TUNE);
   assign ctrl_arb_if.tune_rdy = i_afe_ring_tune_rdy && (state == ARB_CTRL_TUNE);
 
   assign o_dig_afe_ring_tune = ring_tune;

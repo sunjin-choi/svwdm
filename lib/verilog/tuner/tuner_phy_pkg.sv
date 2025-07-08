@@ -81,9 +81,10 @@ package tuner_phy_pkg;
   } tuner_phy_ctrl_arb_if_state_e;
 
   // Predefined Controller Channels
-  typedef enum logic {
-    CH_SEARCH = 1'b0,
-    CH_LOCK   = 1'b1
+  typedef enum logic [1:0] {
+    CH_SEARCH = 2'b01,
+    CH_LOCK   = 2'b10,
+    CH_NULL   = 2'b00
   } tuner_ctrl_ch_e;
   // ----------------------------------------------------------------------
 

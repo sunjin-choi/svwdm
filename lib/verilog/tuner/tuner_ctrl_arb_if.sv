@@ -32,13 +32,13 @@ interface tuner_ctrl_arb_if #(
   // Assume two channels always (Search/Lock Ctrl PHYs)
   // Search ctrl channel: CH_SEARCH (1'b0)
   // Lock ctrl channel: CH_LOCK (1'b1)
-  localparam int NumChannel = 2;
+  localparam int NumChannel = 4;
 
-  logic                 ctrl_refresh;
-  logic                 ctrl_active;
+  logic                 ctrl_refresh     [NumChannel];
+  logic                 ctrl_active      [NumChannel];
 
   // Control -> Arbiter: Ring tuning value (to be sent to AFE)
-  logic [DAC_WIDTH-1:0] ring_tune;
+  logic [DAC_WIDTH-1:0] ring_tune        [NumChannel];
   // Controller
   logic                 tune_val         [NumChannel];
   // Arbiter/AFE
@@ -51,16 +51,14 @@ interface tuner_ctrl_arb_if #(
   logic                 commit_val;
   // Controller
   logic                 commit_rdy       [NumChannel];
+
+  // Internal signal
+  tuner_ctrl_ch_e ch_curr, ch_prev;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
-  // APIs
+  // Logic
   // ----------------------------------------------------------------------
-  function automatic logic get_pwr_detect_active();
-    // Assume power detector should be always active when ctrl_active is high
-    return ctrl_active;
-  endfunction
-
   function automatic logic get_ctrl_tune_ch_ack(tuner_ctrl_ch_e ch);
     return tune_rdy && tune_val[ch];
   endfunction
@@ -72,6 +70,7 @@ interface tuner_ctrl_arb_if #(
   // Priority level for multi-channel design
   // 1. Search takes priority over Lock
   // 2. If one claims ring_tune, it should also claim commit
+  // TODO: implemenet explicit channel select instead?
   function automatic tuner_ctrl_ch_e select_channel();
     logic search_tune_ack, search_commit_ack;
     logic lock_tune_ack, lock_commit_ack;
@@ -86,15 +85,72 @@ interface tuner_ctrl_arb_if #(
     else if (lock_tune_ack) return CH_LOCK;
     else if (search_commit_ack) return CH_SEARCH;
     else if (lock_commit_ack) return CH_LOCK;
-    else return CH_SEARCH;  // Default to search channel if no ack
+    /*else return CH_SEARCH;  // Default to search channel if no ack*/
+    /*else
+     *  return ch_curr;  // Need to latch channel state*/
+    else
+      return CH_NULL;
   endfunction
 
+  // Update current channel
+  always_ff @(posedge i_clk or posedge i_rst) begin
+    if (i_rst) begin
+      ch_prev <= CH_SEARCH;  // Default to search channel on reset
+    end
+    else begin
+      if (select_channel() != CH_NULL) begin
+        ch_prev <= select_channel();
+      end
+    end
+  end
+
+  assign ch_curr = (select_channel() == CH_NULL) ? ch_prev : select_channel();
+  // ----------------------------------------------------------------------
+
+  // ----------------------------------------------------------------------
+  // APIs
+  // ----------------------------------------------------------------------
   function automatic logic get_ctrl_tune_ack(tuner_ctrl_ch_e ch);
-    return get_ctrl_tune_ch_ack(ch) && (select_channel() == ch);
+    /*return get_ctrl_tune_ch_ack(ch) && (select_channel() == ch);*/
+    return get_ctrl_tune_ch_ack(ch) && (ch_curr == ch);
   endfunction
 
   function automatic logic get_ctrl_commit_ack(tuner_ctrl_ch_e ch);
-    return get_ctrl_commit_ch_ack(ch) && (select_channel() == ch);
+    /*return get_ctrl_commit_ch_ack(ch) && (select_channel() == ch);*/
+    return get_ctrl_commit_ch_ack(ch) && (ch_curr == ch);
+  endfunction
+
+  // FIXME
+  function automatic logic get_ctrl_refresh();
+    // ***CAUTION***
+    // One channel should never be in the "refresh" state while another
+    // is in active state
+    // Currently it is not happening, as refresh is only happening during INIT
+    // TODO: flag error state
+    return ctrl_refresh[CH_SEARCH] || ctrl_refresh[CH_LOCK];
+  endfunction
+
+  function automatic logic get_pwr_detect_active();
+    /*return ctrl_active[select_channel()];*/
+    return ctrl_active[ch_curr];
+  endfunction
+
+  function automatic logic [DAC_WIDTH-1:0] get_ring_tune();
+    /*return ring_tune[select_channel()];*/
+    return ring_tune[ch_curr];
+  endfunction
+
+  // Polling functions
+  function automatic logic any_ctrl_tune_val();
+    return tune_val[CH_SEARCH] || tune_val[CH_LOCK];
+  endfunction
+
+  function automatic logic any_ctrl_tune_ack();
+    return get_ctrl_tune_ack(CH_SEARCH) || get_ctrl_tune_ack(CH_LOCK);
+  endfunction
+
+  function automatic logic any_ctrl_commit_ack();
+    return get_ctrl_commit_ack(CH_SEARCH) || get_ctrl_commit_ack(CH_LOCK);
   endfunction
   // ----------------------------------------------------------------------
 
@@ -130,7 +186,13 @@ interface tuner_ctrl_arb_if #(
       input commit_rdy,
       import get_ctrl_tune_ack,
       import get_ctrl_commit_ack,
-      import get_pwr_detect_active
+      import get_pwr_detect_active,
+      import get_ctrl_refresh,
+      import get_pwr_detect_active,
+      import get_ring_tune,
+      import any_ctrl_tune_val,
+      import any_ctrl_tune_ack,
+      import any_ctrl_commit_ack
   );
   // ----------------------------------------------------------------------
 

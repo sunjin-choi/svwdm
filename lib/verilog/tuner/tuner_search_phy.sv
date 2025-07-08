@@ -294,8 +294,10 @@ module tuner_search_phy #(
     end
   end
 
-  assign ctrl_arb_if.ctrl_active = is_ctrl_active_state;
-  assign ctrl_arb_if.ctrl_refresh = search_refresh;
+  /*assign ctrl_arb_if.ctrl_active = is_ctrl_active_state;
+   *assign ctrl_arb_if.ctrl_refresh = search_refresh;*/
+  assign ctrl_arb_if.ctrl_active[CH_SEARCH] = is_ctrl_active_state;
+  assign ctrl_arb_if.ctrl_refresh[CH_SEARCH] = search_refresh;
 
   assign ctrl_arb_if.tune_val[CH_SEARCH] = is_tune_state && tune_compute_done;
 
@@ -345,7 +347,7 @@ module tuner_search_phy #(
   end
 
   /*assign o_dig_ring_tune = ring_tune;*/
-  assign ctrl_arb_if.ring_tune = ring_tune;
+  assign ctrl_arb_if.ring_tune[CH_SEARCH] = ring_tune;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
