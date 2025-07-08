@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
@@ -24,7 +24,8 @@ def plot_monitor(
     time_col: str,
     numeric_cols: List[str],
     state_col: str,
-    state_map: Dict[str,int]
+    state_map: Dict[str,int],
+    filepath: Optional[str],
 ):
     """
     Create a vertical stack of subplots: one for each numeric column, then the state timeline.
@@ -48,7 +49,11 @@ def plot_monitor(
     ax.grid(True)
 
     fig.tight_layout()
-    plt.show()
+    if filepath is None:
+        plt.show()
+    else:
+        plt.savefig(filepath, bbox_inches='tight')
+        print(f"Plot saved to {filepath}")
 
 def main():
     p = argparse.ArgumentParser(
@@ -62,6 +67,10 @@ def main():
     p.add_argument(
         "--state_col", default="state",
         help="Name of the state column (default: state)"
+    )
+    p.add_argument(
+        "--filepath", default=None,
+        help="Path to save the plot image (default: show in window)"
     )
     args = p.parse_args()
 
@@ -79,7 +88,7 @@ def main():
     ]
 
     # 4) Plot
-    plot_monitor(df, args.time_col, numeric_cols, args.state_col, state_map)
+    plot_monitor(df, args.time_col, numeric_cols, args.state_col, state_map, args.filepath)
 
 if __name__ == "__main__":
     main()
