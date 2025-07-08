@@ -189,6 +189,11 @@ int main(int argc, char **argv) {
     dut->i_cfg_ring_tune_start = 120;
     advance_clk();
     dut->i_lock_trig_val = 0;
+
+    for (int i = 0; i < 1000; ++i) {
+      advance_clk();
+    }
+
     // wait for lock to become active
     while (dut->o_lock_state != 2) {
       advance_clk();
@@ -209,17 +214,23 @@ int main(int argc, char **argv) {
       advance_clk();
     }
     dut->i_lock_resume_val = 1;
+    dut->i_cfg_ring_tune_start = 140;
     advance_clk();
     dut->i_lock_resume_val = 0;
+    dut->i_lock_trig_val = 1;
+    advance_clk();
 
-    // wait back to active
-    while (dut->o_lock_state != 2) {
+    for (int i = 0; i < 1000; ++i) {
       advance_clk();
     }
 
-    for (int i = 0; i < 100; ++i) {
-      advance_clk();
-    }
+    // Halt Lock
+    dut->i_lock_resume_val = 1;
+    dut->i_cfg_ring_tune_start = 100;
+    dut->i_lock_trig_val = 0;
+    advance_clk();
+    dut->i_lock_resume_val = 0;
+    advance_clk();
   };
 
   dut->i_pwr = 1.0;
@@ -241,6 +252,7 @@ int main(int argc, char **argv) {
 
   search_routine(0, 255, 2, true);
   lock_routine(true);
+  search_routine(100, 200, 2, true);
 
   monitor.write_csv("search_lock_waveform.csv");
 

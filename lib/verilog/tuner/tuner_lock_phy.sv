@@ -34,7 +34,7 @@ module tuner_lock_phy #(
     parameter int ADC_WIDTH = 8,
     parameter int LOCK_DELTA_WINDOW_SIZE = 4,
     parameter int LOCK_PWR_DELTA_THRES = 2,
-    parameter int LOCK_TUNE_STRIDE = 0
+    parameter int LOCK_TUNE_STRIDE = 1
     /*parameter logic [DAC_WIDTH-1:0] DZ_SIZE = 4*/
 ) (
     input var logic i_clk,
@@ -141,26 +141,26 @@ module tuner_lock_phy #(
   // Assigns
   // ----------------------------------------------------------------------
   /*assign pwr_tgt = i_dig_pwr_peak * i_cfg_ring_pwr_peak_ratio / 16;*/
-  assign ring_tune_step = (1 << LOCK_TUNE_STRIDE);
+  assign ring_tune_step   = (1 << LOCK_TUNE_STRIDE);
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
   // State Machine
   // ----------------------------------------------------------------------
   assign lock_if.trig_rdy = (state == LOCK_IDLE);
-  assign lock_trig_fire = lock_if.get_trig_ack();
+  assign lock_trig_fire   = lock_if.get_trig_ack();
 
   // Interrupt handshake
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
       intr_pending <= 1'b0;
-    end else if (state != LOCK_ACTIVE) begin
+    end
+    else if (state != LOCK_ACTIVE) begin
       intr_pending <= 1'b0;
-    end else begin
-      if (!lock_if.intr_rdy)
-        intr_pending <= 1'b1;
-      else if (lock_if.get_intr_ack())
-        intr_pending <= 1'b0;
+    end
+    else begin
+      if (!lock_if.intr_rdy) intr_pending <= 1'b1;
+      else if (lock_if.get_intr_ack()) intr_pending <= 1'b0;
     end
   end
 
@@ -170,7 +170,7 @@ module tuner_lock_phy #(
   // Resume handshake
   assign lock_if.resume_rdy = (state == LOCK_INTR);
   assign lock_resume_fire = (state == LOCK_INTR) && lock_if.get_resume_ack();
-  assign lock_restore = !lock_if.trig_val;
+  assign lock_restore = 1'b0;
 
   // Cleans up registers
   assign lock_refresh = state == LOCK_INIT;
@@ -191,7 +191,7 @@ module tuner_lock_phy #(
       LOCK_IDLE: if (lock_trig_fire) state_next = LOCK_INIT;
       LOCK_INIT: state_next = LOCK_ACTIVE;
       LOCK_ACTIVE: if (lock_intr_fire) state_next = LOCK_INTR;
-      LOCK_INTR: if (lock_resume_fire) state_next = lock_restore ? LOCK_ACTIVE : LOCK_INIT;
+      LOCK_INTR: if (lock_resume_fire) state_next = lock_restore ? LOCK_ACTIVE : LOCK_IDLE;
       default: state_next = LOCK_IDLE;
     endcase
   end

@@ -123,7 +123,9 @@ module dut (
   tuner_ctrl_arb_if #(
       .ADC_WIDTH(`ADC_WIDTH),
       .DAC_WIDTH(`DAC_WIDTH)
-  ) ctrl_arb_if[`NUM_CHANNEL] ();
+  ) ctrl_arb_if[`NUM_CHANNEL] (
+      .*
+  );
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------

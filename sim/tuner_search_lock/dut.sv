@@ -170,9 +170,9 @@ module dut (
       .NUM_TARGET(`NUM_TARGET),
       .SEARCH_PEAK_WINDOW_HALFSIZE(4),
       .SEARCH_PEAK_THRES(2),
-      .LOCK_DELTA_WINDOW_SIZE(4),
+      .LOCK_DELTA_WINDOW_SIZE(2),
       .LOCK_PWR_DELTA_THRES(2),
-      .LOCK_TUNE_STRIDE(0)
+      .LOCK_TUNE_STRIDE(1)
   ) tuner_phy_inst (
       .i_clk(i_clk),
       .i_rst(i_rst),
