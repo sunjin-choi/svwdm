@@ -61,5 +61,5 @@ include(VerilogPackages)
 
 # Subdirectories for modular build
 
-# add_subdirectory(tests)
+add_subdirectory(tests)
 add_subdirectory(sim)
