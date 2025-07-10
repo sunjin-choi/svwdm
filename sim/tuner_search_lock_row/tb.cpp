@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
     dut->i_search_trig_val[ring] = 1;
     advance_clk(ring);
     dut->i_search_trig_val[ring] = 0;
-    while (dut->o_search_state[ring] != 3) {
+    while (dut->o_search_state[ring] != SEARCH_DONE) {
       advance_clk(ring);
     }
     dut->i_search_done_rdy[ring] = 1;
