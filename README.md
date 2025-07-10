@@ -45,9 +45,7 @@ The `sim/` directory contains the C++ testbenches for simulating the RTL modules
 
 ## Building and Running Simulations
 
-To build the project, you will need to have CMake and Verilator installed.  If
-Verilator is not installed system-wide, set the `VERILATOR_ROOT` environment
-variable so CMake can locate it.
+To build the project, you will need to have CMake and Verilator installed. If Verilator is not installed system-wide, set the `VERILATOR_ROOT` environment variable to point to the Verilator installation directory so CMake can locate it.
 
 1.  Create a build directory:
     ```bash
