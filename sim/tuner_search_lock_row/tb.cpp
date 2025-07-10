@@ -20,6 +20,8 @@ public:
     int lock_state_enum;
   } search_lock_record_t;
 
+  typedef std::vector<int> peak_codes_t;
+
   SearchLockPhyMonitor(Vsim *dut, int ring, int interval = 1)
       : dut_(dut), ring_(ring), sample_interval_(interval) {}
 
@@ -60,11 +62,12 @@ public:
     writer.write_row(csv_row_t{"time", "tune_code", "i_pwr", "o_pwr_thru",
                                "o_pwr_drop", "search_state", "lock_state"});
     for (auto &r : records_) {
-      writer.write_row(csv_row_t{std::to_string(r.time), std::to_string(r.tune_code),
-                                 std::to_string(r.i_pwr), std::to_string(r.o_pwr_thru),
-                                 std::to_string(r.o_pwr_drop),
-                                 search_state_string(r.search_state_enum),
-                                 lock_state_string(r.lock_state_enum)});
+      writer.write_row(
+          csv_row_t{std::to_string(r.time), std::to_string(r.tune_code),
+                    std::to_string(r.i_pwr), std::to_string(r.o_pwr_thru),
+                    std::to_string(r.o_pwr_drop),
+                    search_state_string(r.search_state_enum),
+                    lock_state_string(r.lock_state_enum)});
     }
     ofs.close();
   }
@@ -79,12 +82,23 @@ public:
     }
   }
 
+  void record_peak(int peak_code) { peak_codes_.push_back(peak_code); }
+  int get_peak(int idx) {
+    if (idx < 0 || idx >= static_cast<int>(peak_codes_.size())) {
+      std::cerr << "Index out of bounds: " << idx
+                << ". Peak codes size: " << peak_codes_.size() << std::endl;
+      return -1; // or throw an exception
+    }
+    return peak_codes_[idx];
+  }
+
 private:
   Vsim *dut_;
   int ring_;
   int sample_interval_;
-  std::vector<search_lock_record_t> records_;
   int interval_count_ = 0;
+  std::vector<search_lock_record_t> records_;
+  peak_codes_t peak_codes_;
 
   static std::string search_state_string(int state_enum) {
     switch (state_enum) {
@@ -146,89 +160,128 @@ int main(int argc, char **argv) {
     dut->eval();
   };
 
-  auto advance_clk = [&](size_t ring) {
-    auto search_state_prev = dut->o_search_state[ring];
-    auto lock_state_prev = dut->o_lock_state[ring];
+  /*auto advance_clk = [&](size_t ring) {
+   *  auto search_state_prev = dut->o_search_state[ring];
+   *  auto lock_state_prev = dut->o_lock_state[ring];
+   *  advance_half_clk();
+   *  advance_half_clk();
+   *  tfp->dump(main_time);
+   *  bool force_sample = (dut->o_search_state[ring] != search_state_prev) ||
+   *                      (dut->o_lock_state[ring] != lock_state_prev);
+   *  monitor[ring].sample(main_time, force_sample, true);
+   *};*/
+
+  auto advance_clk = [&]() {
     advance_half_clk();
     advance_half_clk();
     tfp->dump(main_time);
-    bool force_sample = (dut->o_search_state[ring] != search_state_prev) ||
-                        (dut->o_lock_state[ring] != lock_state_prev);
-    monitor[ring].sample(main_time, force_sample, true);
+    for (size_t ring = 0; ring < kNumRings; ++ring) {
+      monitor[ring].sample(main_time, false, false);
+    }
   };
 
   auto search_routine = [&](size_t ring, int start, int end, int stride = 1,
                             bool print = true) {
+    assert(end >= start &&
+           "search_routine: end must be greater than or equal to start");
     dut->i_cfg_ring_tune_start[ring] = start;
     dut->i_cfg_ring_tune_end[ring] = end;
     dut->i_cfg_ring_tune_stride[ring] = stride;
     dut->i_search_trig_val[ring] = 1;
-    advance_clk(ring);
+    advance_clk();
     dut->i_search_trig_val[ring] = 0;
-    while (dut->o_search_state[ring] != SEARCH_DONE) {
-      advance_clk(ring);
+
+    /*while (dut->o_search_state[ring] != 3) {
+     *  advance_clk();
+     *}
+     *dut->i_search_done_rdy[ring] = 1;
+     *advance_clk();*/
+
+    while (!dut->o_search_done_val[ring]) {
+      advance_clk();
     }
+
+    monitor[ring].change_sample_interval(2);
+    advance_clk();
     dut->i_search_done_rdy[ring] = 1;
-    advance_clk(ring);
+    advance_clk();
+
+    // save the first peak code
+    std::cout << "First peak tune code: "
+              << (int)dut->o_pwr_peak_tune_codes[ring][0] << std::endl;
+    std::cout << "Number of peaks: " << (int)dut->o_num_peaks[ring]
+              << std::endl;
+    monitor[ring].record_peak((int)dut->o_pwr_peak_tune_codes[ring][0]);
+
     dut->i_search_done_rdy[ring] = 0;
 
     if (print) {
-      std::cout << "Ring " << ring << " search complete, peaks: "
-                << (int)dut->o_num_peaks[ring] << std::endl;
+      std::cout << "Ring " << ring
+                << " search complete, peaks: " << (int)dut->o_num_peaks[ring]
+                << std::endl;
       for (int i = 0; i < (int)dut->o_num_peaks[ring]; ++i) {
-        std::cout << "Peak[" << i << "] Code: "
-                  << (int)dut->o_pwr_peak_tune_codes[ring][i]
+        std::cout << "Peak[" << i
+                  << "] Code: " << (int)dut->o_pwr_peak_tune_codes[ring][i]
                   << " Pwr: " << (int)dut->o_pwr_peak_codes[ring][i]
                   << std::endl;
       }
     }
   };
 
+  auto offset = [&](size_t ring) -> int { return (ring % 2 == 0) ? -20 : 20; };
+
   auto lock_routine = [&](size_t ring, bool print = true) {
     dut->i_lock_trig_val[ring] = 1;
-    dut->i_cfg_ring_tune_start[ring] = 120;
-    advance_clk(ring);
+
+    dut->i_cfg_ring_tune_start[ring] = monitor[ring].get_peak(0) + offset(ring);
+    advance_clk();
     dut->i_lock_trig_val[ring] = 0;
 
-    for (int i = 0; i < 1000; ++i) {
-      advance_clk(ring);
+    for (int i = 0; i < 10000; ++i) {
+      advance_clk();
     }
 
-    while (dut->o_lock_state[ring] != LOCK_ACTIVE) {
-      advance_clk(ring);
+    /*while (dut->o_lock_state[ring] != LOCK_ACTIVE) {*/
+    while (dut->o_lock_state[ring] != 2) {
+      advance_clk();
     }
 
     dut->i_lock_intr_rdy[ring] = 0;
-    advance_clk(ring);
+    advance_clk();
     dut->i_lock_intr_rdy[ring] = 1;
 
-    while (dut->o_lock_state[ring] != LOCK_INTR) {
-      advance_clk(ring);
+    /*while (dut->o_lock_state[ring] != LOCK_INTR) {*/
+    while (dut->o_lock_state[ring] != 3) {
+      advance_clk();
     }
 
     for (int i = 0; i < 10; ++i) {
-      advance_clk(ring);
+      advance_clk();
     }
-    dut->i_lock_resume_val[ring] = 1;
-    dut->i_cfg_ring_tune_start[ring] = 140;
-    advance_clk(ring);
-    dut->i_lock_resume_val[ring] = 0;
-    dut->i_lock_trig_val[ring] = 1;
-    advance_clk(ring);
-
-    for (int i = 0; i < 1000; ++i) {
-      advance_clk(ring);
-    }
-
-    dut->i_lock_resume_val[ring] = 1;
-    dut->i_cfg_ring_tune_start[ring] = 100;
+    /*    dut->i_lock_resume_val[ring] = 1;
+     *    dut->i_cfg_ring_tune_start[ring] =
+     *        monitor[ring].get_peak(0) + 20; // offset by +20
+     *    advance_clk();
+     *    dut->i_lock_resume_val[ring] = 0;
+     *    dut->i_lock_trig_val[ring] = 1;
+     *    advance_clk();
+     *
+     *    for (int i = 0; i < 1000; ++i) {
+     *      advance_clk();
+     *    }
+     *
+     *    dut->i_lock_resume_val[ring] = 1;
+     *    dut->i_cfg_ring_tune_start[ring] = 100;*/
     dut->i_lock_trig_val[ring] = 0;
-    advance_clk(ring);
+    advance_clk();
     dut->i_lock_resume_val[ring] = 0;
-    advance_clk(ring);
+    advance_clk();
   };
 
-  dut->i_pwr = 1.0;
+  /*dut->i_pwr = 1.0;*/
+  /* Need to solve this problem -- 1.0 then 2nd ring fails. SV model ignores
+   * small numbers */
+  dut->i_pwr = 1000.0;
   dut->i_wvl_ls[0] = 1300.0;
   dut->i_wvl_ls[1] = 1302.0;
 
@@ -247,22 +300,27 @@ int main(int argc, char **argv) {
   }
 
   dut->i_clk = 0;
+  dut->i_rst = 1;
+  advance_clk();
+  advance_clk();
+  dut->i_rst = 0;
+  advance_clk();
 
   for (size_t ring = 0; ring < kNumRings; ++ring) {
-    dut->i_rst = 1;
-    advance_clk(ring);
-    advance_clk(ring);
-    dut->i_rst = 0;
-    advance_clk(ring);
-
     std::cout << "--- Ring " << ring << " ---" << std::endl;
-    search_routine(ring, 0, 255, 2, true);
+    search_routine(ring, 0, 255, 2, false);
+    /*search_routine(ring, 100, 200, 2, true);*/
+  }
+
+  for (size_t ring = 0; ring < kNumRings; ++ring) {
+    std::cout << "--- Ring " << ring << " ---" << std::endl;
     lock_routine(ring, true);
-    search_routine(ring, 100, 200, 2, true);
+    /*search_routine(ring, 100, 200, 2, true);*/
   }
 
   for (size_t r = 0; r < kNumRings; ++r) {
-    monitor[r].write_csv("search_lock_waveform_ring" + std::to_string(r) + ".csv");
+    monitor[r].write_csv("search_lock_waveform_ring" + std::to_string(r) +
+                         ".csv");
   }
 
   tfp->close();

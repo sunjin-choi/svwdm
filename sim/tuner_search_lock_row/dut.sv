@@ -23,7 +23,7 @@ module dut (
 
     // input signals
     input var real i_pwr,
-    input var real i_wvl_ls  [`NUM_WAVES],
+    input var real i_wvl_ls  [  `NUM_WAVES],
     input var real i_wvl_ring[`NUM_CHANNEL],
 
     // Config Inputs for Search/Lock
@@ -44,10 +44,10 @@ module dut (
     output var logic [$clog2(`NUM_TARGET):0] o_num_peaks[`NUM_CHANNEL],
 
     // Lock Interface
-    input var  logic i_lock_trig_val[`NUM_CHANNEL],
-    output var logic o_lock_trig_rdy[`NUM_CHANNEL],
-    input var  logic i_lock_intr_rdy[`NUM_CHANNEL],
-    output var logic o_lock_intr_val[`NUM_CHANNEL],
+    input var  logic i_lock_trig_val  [`NUM_CHANNEL],
+    output var logic o_lock_trig_rdy  [`NUM_CHANNEL],
+    input var  logic i_lock_intr_rdy  [`NUM_CHANNEL],
+    output var logic o_lock_intr_val  [`NUM_CHANNEL],
     input var  logic i_lock_resume_val[`NUM_CHANNEL],
     output var logic o_lock_resume_rdy[`NUM_CHANNEL],
 
@@ -168,27 +168,10 @@ module dut (
 
       adc #(
           .ADC_WIDTH(`ADC_WIDTH),
-          .FullScaleRange(1.0)
+          .FullScaleRange(1000.0)
       ) adc_drop_inst (
           .i_ana(o_pwr_drop[ch]),
           .o_dig(adc_drop[ch])
-      );
-
-      tuner_pwr_detect_phy pwr_drop_detect (
-          .i_clk(i_clk),
-          .i_rst(i_rst),
-          .i_dig_ring_pwr(adc_drop[ch]),
-          .pwr_detect_if(pwr_detect_if[ch].producer)
-      );
-
-      tuner_ctrl_arb_phy ctrl_arb (
-          .i_clk(i_clk),
-          .i_rst(i_rst),
-          .pwr_detect_if(pwr_detect_if[ch].consumer),
-          .ctrl_arb_if(ctrl_arb_if[ch].consumer),
-          .o_dig_afe_ring_tune(ring_tune_dig[ch]),
-          .i_afe_ring_tune_rdy(1'b1),
-          .o_afe_ring_tune_val()
       );
 
       tuner_phy #(
@@ -199,7 +182,7 @@ module dut (
           .SEARCH_PEAK_THRES(2),
           .LOCK_DELTA_WINDOW_SIZE(2),
           .LOCK_PWR_DELTA_THRES(2),
-          .LOCK_TUNE_STRIDE(1)
+          .LOCK_TUNE_STRIDE(0)
       ) tuner_phy_inst (
           .i_clk(i_clk),
           .i_rst(i_rst),
@@ -220,24 +203,24 @@ module dut (
       );
 
       // Search Interface Logic
-      assign search_if[ch].trig_val     = i_search_trig_val[ch];
-      assign o_search_trig_rdy[ch]      = search_if[ch].trig_rdy;
-      assign search_if[ch].peaks_rdy    = i_search_done_rdy[ch];
-      assign o_search_done_val[ch]      = search_if[ch].peaks_val;
-      assign o_pwr_peak_tune_codes[ch]  = search_if[ch].ring_tune_peaks;
-      assign o_pwr_peak_codes[ch]       = search_if[ch].pwr_peaks;
-      assign o_num_peaks[ch]            = search_if[ch].peaks_cnt;
+      assign search_if[ch].trig_val    = i_search_trig_val[ch];
+      assign o_search_trig_rdy[ch]     = search_if[ch].trig_rdy;
+      assign search_if[ch].peaks_rdy   = i_search_done_rdy[ch];
+      assign o_search_done_val[ch]     = search_if[ch].peaks_val;
+      assign o_pwr_peak_tune_codes[ch] = search_if[ch].ring_tune_peaks;
+      assign o_pwr_peak_codes[ch]      = search_if[ch].pwr_peaks;
+      assign o_num_peaks[ch]           = search_if[ch].peaks_cnt;
 
       // Lock Interface Logic
-      assign lock_if[ch].trig_val   = i_lock_trig_val[ch];
-      assign o_lock_trig_rdy[ch]    = lock_if[ch].trig_rdy;
-      assign o_lock_intr_val[ch]    = lock_if[ch].intr_val;
-      assign lock_if[ch].intr_rdy   = i_lock_intr_rdy[ch];
-      assign lock_if[ch].resume_val = i_lock_resume_val[ch];
-      assign o_lock_resume_rdy[ch]  = lock_if[ch].resume_rdy;
+      assign lock_if[ch].trig_val      = i_lock_trig_val[ch];
+      assign o_lock_trig_rdy[ch]       = lock_if[ch].trig_rdy;
+      assign o_lock_intr_val[ch]       = lock_if[ch].intr_val;
+      assign lock_if[ch].intr_rdy      = i_lock_intr_rdy[ch];
+      assign lock_if[ch].resume_val    = i_lock_resume_val[ch];
+      assign o_lock_resume_rdy[ch]     = lock_if[ch].resume_rdy;
 
-      assign o_ring_tune[ch] = ring_tune_dig[ch];
-      assign o_adc_drop[ch]  = adc_drop[ch];
+      assign o_ring_tune[ch]           = ring_tune_dig[ch];
+      assign o_adc_drop[ch]            = adc_drop[ch];
     end
   endgenerate
 
