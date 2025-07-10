@@ -14,6 +14,20 @@ The project uses CMake to build and run the simulations. The `cmake/` directory 
 *   **ProjectUtils.cmake**: Provides utility functions for the project, such as finding and sorting Verilog source files.
 *   **VerilatorUtils.cmake**: Provides functions for setting up and running Verilator.
 
+Before configuring the build, ensure Verilator is installed and visible to CMake. If
+Verilator resides in a custom location, set the ``VERILATOR_ROOT`` environment
+variable:
+
+.. code-block:: bash
+
+   export VERILATOR_ROOT=/opt/verilator
+
+Run CMake from your build directory:
+
+.. code-block:: bash
+
+   cmake ..
+
 Simulation Testbenches
 ----------------------
 
