@@ -14,6 +14,10 @@ def map_states(df: pd.DataFrame, state_col: str) -> Dict:
     Map each unique state string to an integer code, store in 'state_code' column.
     Returns the mapping Dict.
     """
+    # if state_col does not exist in df, then print the column name
+    if state_col not in df.columns:
+        raise ValueError(f"Column '{state_col}' not found in DataFrame. Available columns: {df.columns.tolist()}")
+
     unique_states = df[state_col].unique()
     state_map = {name: idx for idx, name in enumerate(unique_states)}
     df['state_code'] = df[state_col].map(state_map)
@@ -31,7 +35,7 @@ def plot_monitor(
     Create a vertical stack of subplots: one for each numeric column, then the state timeline.
     """
     total_plots = len(numeric_cols) + 1
-    fig, axes = plt.subplots(total_plots, 1, sharex=True, figsize=(8, 2.5 * total_plots))
+    fig, axes = plt.subplots(total_plots, 1, sharex=True, figsize=(8, 2.0 * total_plots))
 
     # Plot each numeric series
     for ax, col in zip(axes, numeric_cols):
