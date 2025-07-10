@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
       advance_clk(ring);
     }
 
-    while (dut->o_lock_state[ring] != 2) {
+    while (dut->o_lock_state[ring] != LOCK_ACTIVE) {
       advance_clk(ring);
     }
 
