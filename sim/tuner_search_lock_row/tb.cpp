@@ -202,7 +202,7 @@ int main(int argc, char **argv) {
     advance_clk(ring);
     dut->i_lock_intr_rdy[ring] = 1;
 
-    while (dut->o_lock_state[ring] != 3) {
+    while (dut->o_lock_state[ring] != LOCK_INTR) {
       advance_clk(ring);
     }
 
