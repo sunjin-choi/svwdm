@@ -76,6 +76,7 @@ module dut (
 
   real ana_tune;
   logic [`DAC_WIDTH-1:0] dac_tune;
+  logic [`DAC_WIDTH-1:0] search_ring_tune;
   /*logic [`ADC_WIDTH-1:0] pwr_drop_detected;*/
 
   /*logic pwr_read_rdy;
@@ -134,6 +135,14 @@ module dut (
       .DAC_WIDTH(`DAC_WIDTH)
   ) ctrl_arb_if (
       .*
+  );
+
+  tuner_txn_if #(
+      .DAC_WIDTH(`DAC_WIDTH),
+      .ADC_WIDTH(`ADC_WIDTH)
+  ) search_txn_if (
+      .i_clk(i_clk),
+      .i_rst(i_rst)
   );
   // ----------------------------------------------------------------------
 
@@ -218,6 +227,17 @@ module dut (
       .o_afe_ring_tune_val()
   );
 
+  tuner_ctrl_txn_adapter #(
+      .DAC_WIDTH(`DAC_WIDTH),
+      .ADC_WIDTH(`ADC_WIDTH),
+      .CHANNEL(CH_SEARCH)
+  ) search_txn_adapter (
+      .i_clk(i_clk),
+      .i_rst(i_rst),
+      .txn_if(search_txn_if.arb),
+      .ctrl_if(ctrl_arb_if.producer)
+  );
+
   tuner_search_phy #(
       .DAC_WIDTH (`DAC_WIDTH),
       .ADC_WIDTH (`ADC_WIDTH),
@@ -244,9 +264,9 @@ module dut (
  *      .o_dig_pwr_detected_peaks(o_dig_pwr_detected_peaks),
  *      .o_dig_ring_tune_peaks_cnt(o_dig_ring_tune_peaks_cnt),*/
 
-      .ctrl_arb_if(ctrl_arb_if),
-
-      .search_if(search_if)
+      .txn_if(search_txn_if.ctrl),
+      .search_if(search_if),
+      .o_dig_ring_tune(search_ring_tune)
 
       /*.o_mon_peak_commit(o_mon_peak_commit),
        *.o_mon_search_active_update(o_mon_search_active_update),
@@ -260,4 +280,3 @@ module dut (
 endmodule
 
 `default_nettype wire
-

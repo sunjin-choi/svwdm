@@ -14,7 +14,7 @@ cmake -B ./build . && cd ./build
 # run tests
 for test in "${TEST_SUITES[@]}"; do
 	echo "Running test: $test"
-	make run-"$test"/fast
+	cmake --build . --target "run-$test" -j1
 	if [ $? -ne 0 ]; then
 		echo "Test $test failed."
 		exit 1

@@ -34,3 +34,14 @@ The `tuner` directory contains the control logic for tuning the microring resona
 *   **tuner_lock_phy.sv**: Locks the microring's resonance to a specific wavelength.
 *   **tuner_ctrl_arb_phy.sv**: An arbiter to share the tuning and power detection hardware between the search and lock controllers.
 *   **tuner_pwr_detect_phy.sv**: Detects the optical power from the photodetector.
+
+Search Transaction Update
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. figure:: _static/tuner_search_txn_update.svg
+   :alt: Tuner search architecture update
+   :width: 100%
+
+   Search path refactor from this PR. ``tuner_search_phy`` now issues a single
+   transaction through ``tuner_txn_if`` and ``tuner_ctrl_txn_adapter`` instead
+   of driving ``tuner_ctrl_arb_if`` directly. The lock path is unchanged.
