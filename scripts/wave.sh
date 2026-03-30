@@ -22,6 +22,11 @@ fi
 cd "$repo_root"
 source "$repo_root/sourceme.sh"
 
+if [ -z "${WAVEFORM_VIEWER:-}" ]; then
+  echo "error: no waveform viewer found; install surfer or gtkwave, or set WAVEFORM_VIEWER explicitly" >&2
+  exit 1
+fi
+
 cmake_args=(
   -S "$repo_root"
   -B "$build_dir"
