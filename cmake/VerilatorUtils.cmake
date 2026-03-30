@@ -86,6 +86,38 @@ function(add_verilated_testbench name top_module cpp_main)
     target_include_directories(${name} PRIVATE ${TESTBENCH_INCLUDE_DIRS})
   endif()
 
+  if(TESTBENCH_PREFIX)
+    set(_verilated_prefix "${TESTBENCH_PREFIX}")
+  else()
+    list(GET TESTBENCH_SOURCES 0 _verilated_top_src)
+    get_filename_component(_verilated_top_name "${_verilated_top_src}" NAME_WE)
+    string(MAKE_C_IDENTIFIER "V${_verilated_top_name}" _verilated_prefix)
+  endif()
+
+  set(_verilated_vdir
+      "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${MODEL_TARGET}.dir/${_verilated_prefix}.dir")
+  set(_verilated_manifest "${_verilated_vdir}/${_verilated_prefix}_copy.cmake")
+  set(_verilated_cmake "${_verilated_vdir}/${_verilated_prefix}.cmake")
+  set(_verilated_args "${_verilated_vdir}/verilator_args.txt")
+
+  # Regenerate the Verilator source manifest when HDL edits can change the
+  # generated file set, otherwise the model target can retain stale objects.
+  if(EXISTS "${_verilated_manifest}")
+    set(_verilated_regenerate OFF)
+    foreach(_verilated_src IN LISTS TESTBENCH_SOURCES)
+      if(EXISTS "${_verilated_src}"
+         AND "${_verilated_src}" IS_NEWER_THAN "${_verilated_manifest}")
+        set(_verilated_regenerate ON)
+        break()
+      endif()
+    endforeach()
+
+    if(_verilated_regenerate)
+      file(REMOVE "${_verilated_manifest}" "${_verilated_cmake}"
+                  "${_verilated_args}")
+    endif()
+  endif()
+
   verilate(
     ${MODEL_TARGET}
     SOURCES

@@ -77,6 +77,20 @@ module tuner_phy #(
       .i_rst(i_rst)
   );
 
+  tuner_txn_if #(
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH)
+  ) search_txn_if (
+      .i_clk(i_clk),
+      .i_rst(i_rst)
+  );
+
+  // ----------------------------------------------------------------------
+
+  // ----------------------------------------------------------------------
+  // Signals
+  // ----------------------------------------------------------------------
+  logic [DAC_WIDTH-1:0] search_phy_ring_tune;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -102,6 +116,17 @@ module tuner_phy #(
       .o_afe_ring_tune_val()
   );
 
+  tuner_ctrl_txn_adapter #(
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
+      .CHANNEL(CH_SEARCH)
+  ) search_txn_adapter (
+      .i_clk(i_clk),
+      .i_rst(i_rst),
+      .txn_if(search_txn_if.arb),
+      .ctrl_if(ctrl_arb_if.producer)
+  );
+
   tuner_search_phy #(
       .DAC_WIDTH(DAC_WIDTH),
       .ADC_WIDTH(ADC_WIDTH),
@@ -116,9 +141,9 @@ module tuner_phy #(
       .i_dig_ring_tune_end(i_cfg_ring_tune_end),
       .i_dig_ring_tune_stride(i_cfg_ring_tune_stride),
 
-      .ctrl_arb_if(ctrl_arb_if.producer),
+      .txn_if(search_txn_if.ctrl),
       .search_if(search_if),
-      .o_dig_ring_tune()
+      .o_dig_ring_tune(search_phy_ring_tune)
   );
 
   tuner_lock_phy #(

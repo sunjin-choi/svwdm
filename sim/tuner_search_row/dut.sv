@@ -83,6 +83,7 @@ module dut #(
   real ana_tune[NUM_CHANNEL];
   real real_tuning_dist[NUM_CHANNEL];
   logic [DAC_WIDTH-1:0] dac_tune[NUM_CHANNEL];
+  logic [DAC_WIDTH-1:0] search_ring_tune[NUM_CHANNEL];
   /*logic [ADC_WIDTH-1:0] pwr_drop_detected;*/
 
   /*logic pwr_read_rdy;
@@ -130,6 +131,14 @@ module dut #(
       .DAC_WIDTH(DAC_WIDTH)
   ) ctrl_arb_if[NUM_CHANNEL] (
       .*
+  );
+
+  tuner_txn_if #(
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH)
+  ) search_txn_if[NUM_CHANNEL] (
+      .i_clk(i_clk),
+      .i_rst(i_rst)
   );
   // ----------------------------------------------------------------------
 
@@ -219,6 +228,17 @@ module dut #(
           .o_afe_ring_tune_val()
       );
 
+      tuner_ctrl_txn_adapter #(
+          .DAC_WIDTH(DAC_WIDTH),
+          .ADC_WIDTH(ADC_WIDTH),
+          .CHANNEL(CH_SEARCH)
+      ) search_txn_adapter (
+          .i_clk(i_clk),
+          .i_rst(i_rst),
+          .txn_if(search_txn_if[ch].arb),
+          .ctrl_if(ctrl_arb_if[ch].producer)
+      );
+
       tuner_search_phy #(
           .DAC_WIDTH (DAC_WIDTH),
           .ADC_WIDTH (ADC_WIDTH),
@@ -231,8 +251,9 @@ module dut #(
           .i_dig_ring_tune_end(i_dig_ring_tune_end[ch]),
           .i_dig_ring_tune_stride(i_dig_ring_tune_stride[ch]),
 
-          .ctrl_arb_if(ctrl_arb_if[ch]),
-          .search_if  (search_if[ch])
+          .txn_if(search_txn_if[ch].ctrl),
+          .search_if  (search_if[ch]),
+          .o_dig_ring_tune(search_ring_tune[ch])
       );
 
       assign search_if[ch].trig_val         = i_dig_search_trig_val[ch];
