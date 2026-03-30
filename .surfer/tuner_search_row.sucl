@@ -1,0 +1,18 @@
+# Focus on per-ring search control and shared optics.
+preference_set_hierarchy_style Tree
+variable_force_name_type Unique
+scope_add_as_group TOP
+divider_add optics
+scope_add_as_group TOP.dut.waves_in
+scope_add_as_group TOP.dut.waves_thru
+scope_add_as_group TOP.dut.waves_drop[0]
+scope_add_as_group TOP.dut.waves_drop[1]
+divider_add ring_0
+scope_add_as_group TOP.dut.pwr_detect_if[0]
+scope_add_as_group TOP.dut.search_if[0]
+scope_add_as_group TOP.dut.ctrl_arb_if[0]
+divider_add ring_1
+scope_add_as_group TOP.dut.pwr_detect_if[1]
+scope_add_as_group TOP.dut.search_if[1]
+scope_add_as_group TOP.dut.ctrl_arb_if[1]
+zoom_fit

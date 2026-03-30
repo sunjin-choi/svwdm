@@ -53,15 +53,16 @@ The `sim/` directory contains the C++ testbenches for simulating the RTL modules
 
 ## Building and Running Simulations
 
-To build the project, you will need to have CMake and Verilator installed.
+To build the project, you will need to have CMake and Verilator installed. If Verilator is not installed system-wide, set the `VERILATOR_ROOT` environment variable to point to the Verilator installation directory so CMake can locate it.
 
 1.  Configure the build directory:
     ```bash
     cmake -S . -B build
     ```
 
-2.  Build all simulations:
+2.  Build all simulations (setting `VERILATOR_ROOT` if needed):):
     ```bash
+    export VERILATOR_ROOT=/opt/verilator  # adjust path to your installation
     cmake --build build -j
     ```
 
@@ -79,8 +80,40 @@ To build the project, you will need to have CMake and Verilator installed.
     ./scripts/run_tuner_sims.sh
     ```
 
-If you add new RTL files, rerun the configure step so CMake regenerates the
-Verilator source list.
+## Waveform Viewing With Surfer
+
+If `surfer` is installed, sourcing `sourceme.sh` will point `WAVEFORM_VIEWER` at the repo-local launcher in `scripts/open_wave_surfer.sh`. Existing `make wave-<simulation_name>` targets will then open Surfer instead of GTKWave.
+
+Project-local Surfer assets live under `.surfer`:
+
+*   `default.sucl`: fallback startup view for any waveform
+*   `<simulation_name>.sucl`: focused startup views for selected simulations
+*   `mappings/*.map`: enum/state translators for tuner state buses
+
+Recommended flow:
+
+1.  Source the environment:
+    ```bash
+    source sourceme.sh
+    ```
+2.  Open a waveform from the repo root:
+    ```bash
+    scripts/wave.sh tuner_search_row
+    ```
+    This refreshes the CMake build tree and then runs `cmake --build build --target wave-tuner_search_row`.
+3.  On first open, Surfer will apply the repo command file for that simulation.
+4.  If you customize the layout, save it as `.surfer/<simulation_name>.ron`. The launcher will prefer that saved state on future opens.
+
+Full repo-specific Surfer usage notes are in `docs/surfer.rst`.
+
+Useful mapping formats available in Surfer's format picker:
+
+*   `search_state`
+*   `lock_state`
+*   `detect_state`
+*   `detect_if_state`
+*   `ctrl_arb_state`
+*   `ctrl_arb_if_state`
 
 ## Requirements
 

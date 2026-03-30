@@ -1,0 +1,7 @@
+# tuner_phy_detect_state_e
+Name = detect_state
+Bits = 3
+0 IDLE
+1 WAIT
+2 ACTIVE
+3 DONE

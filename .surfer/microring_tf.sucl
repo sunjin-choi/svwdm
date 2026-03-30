@@ -1,0 +1,8 @@
+# Focus on ring transfer function behavior.
+preference_set_hierarchy_style Tree
+variable_force_name_type Unique
+scope_add_as_group TOP
+scope_add_as_group TOP.dut.waves_in
+scope_add_as_group TOP.dut.waves_drop
+scope_add_as_group TOP.dut.waves_thru
+zoom_fit

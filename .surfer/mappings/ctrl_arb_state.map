@@ -1,0 +1,7 @@
+# tuner_phy_ctrl_arb_state_e
+Name = ctrl_arb_state
+Bits = 2
+0 INIT
+1 TUNE
+2 SYNC
+3 COMMIT

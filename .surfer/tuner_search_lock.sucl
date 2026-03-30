@@ -1,0 +1,13 @@
+# Focus on combined search/lock control and optical bundles.
+preference_set_hierarchy_style Tree
+variable_force_name_type Unique
+scope_add_as_group TOP
+divider_add optics
+scope_add_as_group TOP.dut.waves_in
+scope_add_as_group TOP.dut.waves_drop
+scope_add_as_group TOP.dut.waves_thru
+divider_add search
+scope_add_as_group TOP.dut.search_if
+divider_add lock
+scope_add_as_group TOP.dut.lock_if
+zoom_fit

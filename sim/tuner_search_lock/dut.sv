@@ -35,8 +35,8 @@ module dut (
     output var logic o_search_trig_rdy,
     input var logic i_search_done_rdy,
     output var logic o_search_done_val,
-    output var logic [`DAC_WIDTH-1:0] o_pwr_peak_tune_codes[`NUM_TARGET-1:0],
-    output var logic [`ADC_WIDTH-1:0] o_pwr_peak_codes[`NUM_TARGET-1:0],
+    output var logic [`DAC_WIDTH-1:0] o_pwr_peak_tune_codes[`NUM_TARGET],
+    output var logic [`ADC_WIDTH-1:0] o_pwr_peak_codes[`NUM_TARGET],
     output var logic [$clog2(`NUM_TARGET):0] o_num_peaks,
 
     // Lock Interface

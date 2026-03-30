@@ -19,6 +19,8 @@ public:
     int lock_state_enum;
   } search_lock_record_t;
 
+  typedef std::vector<int> peak_codes_t;
+
   SearchLockPhyMonitor(Vdut *dut) : dut_(dut) { sample_interval_ = 1; };
   SearchLockPhyMonitor(Vdut *dut, int interval)
       : dut_(dut), sample_interval_(interval){};
@@ -80,11 +82,22 @@ public:
     }
   }
 
+  void record_peak(int peak_code) { peak_codes_.push_back(peak_code); }
+  int get_peak(int idx) {
+    if (idx < 0 || idx >= static_cast<int>(peak_codes_.size())) {
+      std::cerr << "Index out of bounds: " << idx
+                << ". Peak codes size: " << peak_codes_.size() << std::endl;
+      return -1; // or throw an exception
+    }
+    return peak_codes_[idx];
+  }
+
 private:
   Vdut *dut_;
   int sample_interval_;
-  std::vector<search_lock_record_t> records_;
   int interval_count_ = 0;
+  std::vector<search_lock_record_t> records_;
+  peak_codes_t peak_codes_;
 
   static std::string state_string(int state_enum, bool is_search) {
     if (is_search) {
@@ -177,16 +190,17 @@ int main(int argc, char **argv) {
     dut->i_search_done_rdy = 1;
     advance_clk();
 
-    /*// save the first peak code
-     *first_peak_code = (int)dut->o_pwr_peak_tune_codes[0];
-     *std::cout << "First peak tune code: " << first_peak_code << "\n";*/
+    // save the first peak code
+    first_peak_code = (int)dut->o_pwr_peak_tune_codes[0];
+    std::cout << "First peak tune code: " << first_peak_code << "\n";
+    monitor.record_peak(first_peak_code);
 
     dut->i_search_done_rdy = 0;
   };
 
   auto lock_routine = [&](bool print = true) {
     dut->i_lock_trig_val = 1;
-    dut->i_cfg_ring_tune_start = 120;
+    dut->i_cfg_ring_tune_start = monitor.get_peak(0) - 20; // offset by -20
     advance_clk();
     dut->i_lock_trig_val = 0;
 
@@ -214,7 +228,7 @@ int main(int argc, char **argv) {
       advance_clk();
     }
     dut->i_lock_resume_val = 1;
-    dut->i_cfg_ring_tune_start = 140;
+    dut->i_cfg_ring_tune_start = monitor.get_peak(0) + 20; // offset by +20
     advance_clk();
     dut->i_lock_resume_val = 0;
     dut->i_lock_trig_val = 1;

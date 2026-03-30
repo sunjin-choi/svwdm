@@ -6,5 +6,11 @@ export VERILOG_SIM_DIR=$PWD/sim
 
 export CPP_LIB_DIR=$PWD/lib/cpp
 
-export WAVEFORM_VIEWER=/Applications/gtkwave.app/Contents/Resources/bin/gtkwave
+if [ -z "${WAVEFORM_VIEWER:-}" ]; then
+  if command -v surfer >/dev/null 2>&1; then
+    export WAVEFORM_VIEWER=$PWD/scripts/open_wave_surfer.sh
+  elif command -v gtkwave >/dev/null 2>&1; then
+    export WAVEFORM_VIEWER=$(command -v gtkwave)
+  fi
+fi
 export WAVEFORM_FILE="waveform.vcd"
