@@ -137,6 +137,8 @@ private:
 int main(int argc, char **argv) {
   constexpr size_t kNumRings = 2;
   const std::array<int, kNumRings> kLockTuneStride = {0, 0};
+  const std::array<int, kNumRings> kLockPwrDeltaThres = {2, 2};
+  const std::array<int, kNumRings> kSyncCycle = {4, 4};
   VerilatorTb<Vsim> tb(argc, argv);
   auto *dut = tb.dut();
 
@@ -279,6 +281,8 @@ int main(int argc, char **argv) {
     dut->i_lock_resume_val[r] = 0;
     dut->i_cfg_ring_pwr_peak_ratio[r] = 8;
     dut->i_cfg_lock_tune_stride[r] = kLockTuneStride[r];
+    dut->i_cfg_lock_pwr_delta_thres[r] = kLockPwrDeltaThres[r];
+    dut->i_cfg_sync_cycle[r] = kSyncCycle[r];
   }
 
   dut->i_clk = 0;

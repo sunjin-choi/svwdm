@@ -142,6 +142,8 @@ private:
 
 int main(int argc, char **argv) {
   constexpr int kLockTuneStride = 1;
+  constexpr int kLockPwrDeltaThres = 2;
+  constexpr int kSyncCycle = 4;
   VerilatorTb<Vdut> tb(argc, argv);
   auto *dut = tb.dut();
   int first_peak_code = 0;
@@ -238,6 +240,8 @@ int main(int argc, char **argv) {
   dut->i_lock_resume_val = 0;
   dut->i_cfg_ring_pwr_peak_ratio = 8;
   dut->i_cfg_lock_tune_stride = kLockTuneStride;
+  dut->i_cfg_lock_pwr_delta_thres = kLockPwrDeltaThres;
+  dut->i_cfg_sync_cycle = kSyncCycle;
 
   dut->i_clk = 0;
   tb.reset(dut->i_clk, dut->i_rst);

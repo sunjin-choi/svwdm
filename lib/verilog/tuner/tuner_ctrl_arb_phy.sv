@@ -21,10 +21,11 @@
 module tuner_ctrl_arb_phy #(
     parameter int DAC_WIDTH  = 8,
     parameter int ADC_WIDTH  = 8,
-    parameter int SYNC_CYCLE = 4
+    parameter int MAX_SYNC_CYCLE = 16
 ) (
     input var logic i_clk,
     input var logic i_rst,
+    input var logic [$clog2(MAX_SYNC_CYCLE + 1)-1:0] i_cfg_sync_cycle,
 
     // Power Detector Interface
     tuner_pwr_detect_if.consumer pwr_detect_if,
@@ -61,8 +62,12 @@ module tuner_ctrl_arb_phy #(
   //  } lock_active_t;
 
   tuner_phy_ctrl_arb_state_e state, state_next;
+  localparam int SyncCycleWidth = $clog2(MAX_SYNC_CYCLE + 1);
+  localparam logic [SyncCycleWidth-1:0] MaxSyncCycleValue =
+      SyncCycleWidth'(MAX_SYNC_CYCLE);
   logic pwr_detect_update;
-  logic [3:0] sync_cnt;
+  logic [SyncCycleWidth-1:0] sync_cnt;
+  logic [SyncCycleWidth-1:0] sync_cycle_eff;
   logic sync_cnt_done;
   logic sync_cnt_update;
   logic ctrl_refresh;
@@ -153,6 +158,18 @@ module tuner_ctrl_arb_phy #(
 
   assign pwr_detect_update = pwr_detect_if.pwr_detect_update;
 
+  always_comb begin
+    if (i_cfg_sync_cycle == '0) begin
+      sync_cycle_eff = 'd1;
+    end
+    else if (i_cfg_sync_cycle > MaxSyncCycleValue) begin
+      sync_cycle_eff = MaxSyncCycleValue;
+    end
+    else begin
+      sync_cycle_eff = i_cfg_sync_cycle;
+    end
+  end
+
   // Sync counter update when power detection is active
   // So that it essentially waits for the current tune code's resulting pwr
   assign sync_cnt_update = pwr_detect_update;
@@ -191,7 +208,8 @@ module tuner_ctrl_arb_phy #(
     end
   end
 
-  assign sync_cnt_done = (state == ARB_CTRL_SYNC) && (sync_cnt == SYNC_CYCLE - 1);
+  assign sync_cnt_done =
+      (state == ARB_CTRL_SYNC) && (sync_cnt == sync_cycle_eff - 1'b1);
 
   always_comb begin
     case (state)
@@ -297,4 +315,3 @@ module tuner_ctrl_arb_phy #(
 endmodule
 
 `default_nettype wire
-

@@ -16,7 +16,9 @@ module dut #(
     parameter int ADC_WIDTH    = 8,
     parameter int NUM_TARGET   = 4,
     parameter int NUM_WAVES    = 2,
-    parameter int NUM_CHANNEL  = 2
+    parameter int NUM_CHANNEL  = 2,
+    parameter int LOCK_DELTA_WINDOW_SIZE = 2,
+    parameter int MAX_SYNC_CYCLE = 16
 ) (
     input var logic i_clk,
     input var logic i_rst,
@@ -31,6 +33,9 @@ module dut #(
     input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_end[NUM_CHANNEL],
     input var logic [$clog2(DAC_WIDTH)-1:0] i_cfg_ring_tune_stride[NUM_CHANNEL],
     input var logic [$clog2(DAC_WIDTH)-1:0] i_cfg_lock_tune_stride[NUM_CHANNEL],
+    input var logic [$clog2(MAX_SYNC_CYCLE + 1)-1:0] i_cfg_sync_cycle[NUM_CHANNEL],
+    input var logic [$clog2(LOCK_DELTA_WINDOW_SIZE + 1)-1:0]
+        i_cfg_lock_pwr_delta_thres[NUM_CHANNEL],
     input var logic [3:0] i_cfg_ring_pwr_peak_ratio[NUM_CHANNEL],
     input var logic [ADC_WIDTH-1:0] i_cfg_pwr_peak[NUM_CHANNEL],
     input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_peak[NUM_CHANNEL],
@@ -184,8 +189,8 @@ module dut #(
           .NUM_TARGET(NUM_TARGET),
           .SEARCH_PEAK_WINDOW_HALFSIZE(4),
           .SEARCH_PEAK_THRES(2),
-          .LOCK_DELTA_WINDOW_SIZE(2),
-          .LOCK_PWR_DELTA_THRES(2)
+          .LOCK_DELTA_WINDOW_SIZE(LOCK_DELTA_WINDOW_SIZE),
+          .MAX_SYNC_CYCLE(MAX_SYNC_CYCLE)
       ) tuner_phy_inst (
           .i_clk(i_clk),
           .i_rst(i_rst),
@@ -194,6 +199,8 @@ module dut #(
           .i_cfg_ring_tune_end(i_cfg_ring_tune_end[ch]),
           .i_cfg_ring_tune_stride(i_cfg_ring_tune_stride[ch]),
           .i_cfg_lock_tune_stride(i_cfg_lock_tune_stride[ch]),
+          .i_cfg_sync_cycle(i_cfg_sync_cycle[ch]),
+          .i_cfg_lock_pwr_delta_thres(i_cfg_lock_pwr_delta_thres[ch]),
           .i_cfg_ring_pwr_peak_ratio(i_cfg_ring_pwr_peak_ratio[ch]),
           .i_cfg_pwr_peak(i_cfg_pwr_peak[ch]),
           .i_cfg_ring_tune_peak(i_cfg_ring_tune_peak[ch]),

@@ -18,11 +18,11 @@ import wdm_pkg::*;
 import tuner_phy_pkg::*;
 
 module dut #(
-    parameter int DAC_WIDTH = 8,
-    parameter int ADC_WIDTH = 8,
-    parameter int NUM_TARGET = 4,
-    parameter int NUM_WAVES = 2,
-    parameter int NUM_CHANNEL = 2,
+    parameter int DAC_WIDTH    = 8,
+    parameter int ADC_WIDTH    = 8,
+    parameter int NUM_TARGET   = 4,
+    parameter int NUM_WAVES    = 2,
+    parameter int NUM_CHANNEL  = 2,
     parameter int MAX_SYNC_CYCLE = 16
 ) (
     input var logic i_clk,

@@ -99,6 +99,7 @@ private:
 };
 
 int main(int argc, char **argv) {
+  constexpr int kSyncCycle = 4;
   VerilatorTb<Vsim> tb(argc, argv);
   auto *dut = tb.dut();
 
@@ -161,6 +162,7 @@ int main(int argc, char **argv) {
   dut->i_wvl_ring = 1295.0;
   dut->i_dig_search_trig_val = 0;
   dut->i_dig_search_peaks_rdy = 0;
+  dut->i_cfg_sync_cycle = kSyncCycle;
 
   dut->i_clk = 0; // Clock starts low
   tb.reset(dut->i_clk, dut->i_rst);
