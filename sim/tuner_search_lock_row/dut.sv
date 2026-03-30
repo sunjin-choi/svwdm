@@ -8,6 +8,9 @@
 `default_nettype none
 // verilog_format: on
 
+import wdm_pkg::*;
+import tuner_phy_pkg::*;
+
 module dut #(
     parameter int DAC_WIDTH    = 8,
     parameter int ADC_WIDTH    = 8,
