@@ -12,6 +12,7 @@ Welcome to SystemVerilog WDM Simulation's documentation!
 
    rtl
    simulator
+   surfer
 
 
 Indices and tables

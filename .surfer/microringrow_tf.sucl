@@ -1,0 +1,6 @@
+# Start from top-level I/O plus the main DUT scope for row sweeps.
+preference_set_hierarchy_style Tree
+variable_force_name_type Unique
+scope_add_as_group TOP
+scope_add_as_group TOP.dut
+zoom_fit

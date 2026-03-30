@@ -1,0 +1,9 @@
+# tuner_phy_search_state_e
+Name = search_state
+Bits = 5
+0 IDLE
+1 INIT
+2 ACTIVE
+3 DONE
+4[error] ERROR
+5 INTR
