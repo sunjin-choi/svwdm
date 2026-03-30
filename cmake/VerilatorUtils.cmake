@@ -30,6 +30,11 @@ function(define_verilator_environment)
   set(WAVEFORM_FILE
       $ENV{WAVEFORM_FILE}
       CACHE PATH "Path to the waveform file")
+  if(NOT WAVEFORM_FILE)
+    set(WAVEFORM_FILE
+        waveform.vcd
+        CACHE PATH "Path to the waveform file" FORCE)
+  endif()
 
   list(APPEND VERI_ARGS -Wall -Wno-fatal -sv --cc)
 
@@ -72,6 +77,9 @@ function(add_verilated_testbench name top_module cpp_main)
   target_include_directories(csv2 INTERFACE ${csv2_SOURCE_DIR}/include)
   target_compile_features(csv2 INTERFACE cxx_std_17)
 
+  set(MODEL_TARGET "${name}_model")
+  add_library(${MODEL_TARGET} STATIC)
+
   add_executable(${name} ${cpp_main} ${TESTBENCH_EXTRA_SRC})
 
   if(TESTBENCH_INCLUDE_DIRS)
@@ -79,7 +87,7 @@ function(add_verilated_testbench name top_module cpp_main)
   endif()
 
   verilate(
-    ${name}
+    ${MODEL_TARGET}
     SOURCES
     ${TESTBENCH_SOURCES}
     VERILATOR_ARGS
@@ -88,9 +96,10 @@ function(add_verilated_testbench name top_module cpp_main)
     ${top_module}
     PREFIX
     ${TESTBENCH_PREFIX}
-    TRACE)
+    TRACE_VCD
+    TRACE_STRUCTS)
 
-  target_link_libraries(${name} PRIVATE csv2)
+  target_link_libraries(${name} PRIVATE ${MODEL_TARGET} csv2)
 
   # Add run_<target> if it doesn't already exist
   set(RUN_TARGET "run-${name}")

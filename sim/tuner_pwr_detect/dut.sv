@@ -14,9 +14,9 @@
 `default_nettype none
 // verilog_format: on
 
-`define ADC_WIDTH 8
-
-module dut (
+module dut #(
+    parameter int ADC_WIDTH = 8
+) (
     input var logic i_clk,
     input var logic i_rst,
 
@@ -29,11 +29,11 @@ module dut (
     output real o_pwr_thru,
     output real o_pwr_drop,
 
-    output logic [`ADC_WIDTH-1:0] o_adc_thru,
-    output logic [`ADC_WIDTH-1:0] o_adc_drop,
+    output logic [ADC_WIDTH-1:0] o_adc_thru,
+    output logic [ADC_WIDTH-1:0] o_adc_drop,
 
     output logic o_dig_pwr_thru_detect_fire,
-    output logic [`ADC_WIDTH-1:0] o_dig_pwr_thru_detect
+    output logic [ADC_WIDTH-1:0] o_dig_pwr_thru_detect
 );
   import wdm_pkg::*;
 
@@ -58,7 +58,7 @@ module dut (
   end
 
   tuner_pwr_detect_if #(
-      .ADC_WIDTH(`ADC_WIDTH)
+      .ADC_WIDTH(ADC_WIDTH)
   ) pwr_detect_if (
       .i_clk(i_clk),
       .i_rst(i_rst)
@@ -116,7 +116,7 @@ module dut (
   );
 
   adc #(
-      .ADC_WIDTH(`ADC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
       .FullScaleRange(1.0)
   ) adc_thru (
       .i_ana(o_pwr_thru),
@@ -124,7 +124,7 @@ module dut (
   );
 
   adc #(
-      .ADC_WIDTH(`ADC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
       .FullScaleRange(1.0)
   ) adc_drop (
       .i_ana(o_pwr_drop),
@@ -147,4 +147,3 @@ module dut (
 endmodule
 
 `default_nettype wire
-

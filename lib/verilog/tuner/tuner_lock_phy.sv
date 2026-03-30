@@ -33,8 +33,7 @@ module tuner_lock_phy #(
     parameter int DAC_WIDTH = 8,
     parameter int ADC_WIDTH = 8,
     parameter int LOCK_DELTA_WINDOW_SIZE = 4,
-    parameter int LOCK_PWR_DELTA_THRES = 2,
-    parameter int LOCK_TUNE_STRIDE = 1
+    parameter int LOCK_PWR_DELTA_THRES = 2
     /*parameter logic [DAC_WIDTH-1:0] DZ_SIZE = 4*/
 ) (
     input var logic i_clk,
@@ -43,6 +42,7 @@ module tuner_lock_phy #(
     // lock config
     //    // expected to set start by offsetting the peak target to red-side
     input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_start,
+    input var logic [$clog2(DAC_WIDTH)-1:0] i_cfg_lock_tune_stride,
     //    // end is not used if local search is not enabled
     //    input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_end,
     //    /*input var logic [ADC_WIDTH-1:0] i_cfg_ring_pwr_peak,*/
@@ -141,7 +141,7 @@ module tuner_lock_phy #(
   // Assigns
   // ----------------------------------------------------------------------
   /*assign pwr_tgt = i_dig_pwr_peak * i_cfg_ring_pwr_peak_ratio / 16;*/
-  assign ring_tune_step   = (1 << LOCK_TUNE_STRIDE);
+  assign ring_tune_step   = (1 << i_cfg_lock_tune_stride);
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------

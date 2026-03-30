@@ -8,11 +8,11 @@
 `default_nettype none
 // verilog_format: on
 
-`define DAC_WIDTH 8
-`define ADC_WIDTH 8
-`define NUM_TARGET 8
-
-module dut (
+module dut #(
+    parameter int DAC_WIDTH    = 8,
+    parameter int ADC_WIDTH    = 8,
+    parameter int NUM_TARGET   = 8
+) (
     input var logic i_clk,
     input var logic i_rst,
 
@@ -22,22 +22,23 @@ module dut (
     input var real i_wvl_ring,
 
     // Config Inputs for Search/Lock
-    input var logic [`DAC_WIDTH-1:0] i_cfg_ring_tune_start,
-    input var logic [`DAC_WIDTH-1:0] i_cfg_ring_tune_end,
-    input var logic [$clog2(`DAC_WIDTH)-1:0] i_cfg_ring_tune_stride,
+    input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_start,
+    input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_end,
+    input var logic [$clog2(DAC_WIDTH)-1:0] i_cfg_ring_tune_stride,
+    input var logic [$clog2(DAC_WIDTH)-1:0] i_cfg_lock_tune_stride,
     input var logic [3:0] i_cfg_ring_pwr_peak_ratio,
 
-    input var logic [`ADC_WIDTH-1:0] i_cfg_pwr_peak,
-    input var logic [`DAC_WIDTH-1:0] i_cfg_ring_tune_peak,
+    input var logic [ADC_WIDTH-1:0] i_cfg_pwr_peak,
+    input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_peak,
 
     // Search Interface
     input var logic i_search_trig_val,
     output var logic o_search_trig_rdy,
     input var logic i_search_done_rdy,
     output var logic o_search_done_val,
-    output var logic [`DAC_WIDTH-1:0] o_pwr_peak_tune_codes[`NUM_TARGET],
-    output var logic [`ADC_WIDTH-1:0] o_pwr_peak_codes[`NUM_TARGET],
-    output var logic [$clog2(`NUM_TARGET):0] o_num_peaks,
+    output var logic [DAC_WIDTH-1:0] o_pwr_peak_tune_codes[NUM_TARGET],
+    output var logic [ADC_WIDTH-1:0] o_pwr_peak_codes[NUM_TARGET],
+    output var logic [$clog2(NUM_TARGET):0] o_num_peaks,
 
     // Lock Interface
     input var  logic i_lock_trig_val,
@@ -50,13 +51,13 @@ module dut (
     // output signals
     output real o_pwr_thru,
     output real o_pwr_drop,
-    output logic [`DAC_WIDTH-1:0] o_ring_tune,
+    output logic [DAC_WIDTH-1:0] o_ring_tune,
     output tuner_phy_search_state_e o_search_state,
     output tuner_phy_lock_state_e o_lock_state,
     output logic o_search_err,
     output logic o_lock_err,
-    output logic [`ADC_WIDTH-1:0] o_adc_thru,
-    output logic [`ADC_WIDTH-1:0] o_adc_drop
+    output logic [ADC_WIDTH-1:0] o_adc_thru,
+    output logic [ADC_WIDTH-1:0] o_adc_drop
 );
   import wdm_pkg::*;
   import tuner_phy_pkg::*;
@@ -67,14 +68,14 @@ module dut (
   // Interfaces
   // ----------------------------------------------------------------------
   tuner_search_if #(
-      .DAC_WIDTH (`DAC_WIDTH),
-      .ADC_WIDTH (`ADC_WIDTH),
-      .NUM_TARGET(`NUM_TARGET)
+      .DAC_WIDTH (DAC_WIDTH),
+      .ADC_WIDTH (ADC_WIDTH),
+      .NUM_TARGET(NUM_TARGET)
   ) search_if ();
   tuner_lock_if #(
-      .DAC_WIDTH (`DAC_WIDTH),
-      .ADC_WIDTH (`ADC_WIDTH),
-      .NUM_TARGET(`NUM_TARGET)
+      .DAC_WIDTH (DAC_WIDTH),
+      .ADC_WIDTH (ADC_WIDTH),
+      .NUM_TARGET(NUM_TARGET)
   ) lock_if ();
   // ----------------------------------------------------------------------
 
@@ -90,8 +91,8 @@ module dut (
 
   real ana_tune;
 
-  logic [`ADC_WIDTH-1:0] adc_thru;
-  logic [`ADC_WIDTH-1:0] adc_drop;
+  logic [ADC_WIDTH-1:0] adc_thru;
+  logic [ADC_WIDTH-1:0] adc_drop;
 
   always_comb begin
     for (int i = 0; i < WAVES_WIDTH; i++) begin
@@ -127,7 +128,7 @@ module dut (
   );
 
   dac #(
-      .DAC_WIDTH(`DAC_WIDTH),
+      .DAC_WIDTH(DAC_WIDTH),
       .FullScaleRange(1.0)
   ) dac_tune (
       .i_dig(o_ring_tune),
@@ -149,7 +150,7 @@ module dut (
   );
 
   adc #(
-      .ADC_WIDTH(`ADC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
       .FullScaleRange(1.0)
   ) adc_thru_inst (
       .i_ana(o_pwr_thru),
@@ -157,7 +158,7 @@ module dut (
   );
 
   adc #(
-      .ADC_WIDTH(`ADC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
       .FullScaleRange(1.0)
   ) adc_drop_inst (
       .i_ana(o_pwr_drop),
@@ -165,14 +166,13 @@ module dut (
   );
 
   tuner_phy #(
-      .DAC_WIDTH(`DAC_WIDTH),
-      .ADC_WIDTH(`ADC_WIDTH),
-      .NUM_TARGET(`NUM_TARGET),
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
+      .NUM_TARGET(NUM_TARGET),
       .SEARCH_PEAK_WINDOW_HALFSIZE(4),
       .SEARCH_PEAK_THRES(2),
       .LOCK_DELTA_WINDOW_SIZE(2),
-      .LOCK_PWR_DELTA_THRES(2),
-      .LOCK_TUNE_STRIDE(1)
+      .LOCK_PWR_DELTA_THRES(2)
   ) tuner_phy_inst (
       .i_clk(i_clk),
       .i_rst(i_rst),
@@ -180,6 +180,7 @@ module dut (
       .i_cfg_ring_tune_start(i_cfg_ring_tune_start),
       .i_cfg_ring_tune_end(i_cfg_ring_tune_end),
       .i_cfg_ring_tune_stride(i_cfg_ring_tune_stride),
+      .i_cfg_lock_tune_stride(i_cfg_lock_tune_stride),
       .i_cfg_ring_pwr_peak_ratio(i_cfg_ring_pwr_peak_ratio),
       .i_cfg_pwr_peak(i_cfg_pwr_peak),
       .i_cfg_ring_tune_peak(i_cfg_ring_tune_peak),

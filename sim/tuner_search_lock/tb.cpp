@@ -1,11 +1,9 @@
 #include "Vdut.h"
+#include "testbench/verilator_tb.hpp"
 #include "utils/sweep.hpp"
-#include "verilated.h"
-#include "verilated_vcd_c.h"
 #include <csv2/writer.hpp>
 #include <fstream>
 #include <iostream>
-#include <memory>
 
 class SearchLockPhyMonitor {
 public:
@@ -143,37 +141,20 @@ private:
 };
 
 int main(int argc, char **argv) {
-  auto contextp = std::make_unique<VerilatedContext>();
-  Verilated::traceEverOn(true);
-  contextp->commandArgs(argc, argv);
-  auto tfp = std::make_unique<VerilatedVcdC>();
-  tfp->set_time_unit("ps");
-  tfp->set_time_resolution("ps");
-  const auto dut = std::make_unique<Vdut>(contextp.get());
-  dut->trace(tfp.get(), 99);
-  tfp->open("waveform.vcd");
-
-  vluint64_t main_time = 0;
-  const vluint64_t clk_period = 10;
+  constexpr int kLockTuneStride = 1;
+  VerilatorTb<Vdut> tb(argc, argv);
+  auto *dut = tb.dut();
   int first_peak_code = 0;
 
-  SearchLockPhyMonitor monitor(dut.get(), 8);
-
-  auto advance_half_clk = [&]() {
-    main_time += clk_period / 2;
-    dut->i_clk = !dut->i_clk;
-    dut->eval();
-  };
+  SearchLockPhyMonitor monitor(dut, 8);
 
   auto advance_clk = [&]() {
     auto search_state_prev = dut->o_search_state;
     auto lock_state_prev = dut->o_lock_state;
-    advance_half_clk();
-    advance_half_clk();
-    tfp->dump(main_time);
+    tb.step_clk(dut->i_clk);
     bool force_sample = (dut->o_search_state != search_state_prev) ||
                         (dut->o_lock_state != lock_state_prev);
-    monitor.sample(main_time, force_sample, true);
+    monitor.sample(tb.time_ps(), force_sample, true);
   };
 
   auto search_routine = [&](int start, int end, int stride = 1,
@@ -256,13 +237,10 @@ int main(int argc, char **argv) {
   dut->i_lock_intr_rdy = 1;
   dut->i_lock_resume_val = 0;
   dut->i_cfg_ring_pwr_peak_ratio = 8;
+  dut->i_cfg_lock_tune_stride = kLockTuneStride;
 
   dut->i_clk = 0;
-  dut->i_rst = 1;
-  advance_clk();
-  advance_clk();
-  dut->i_rst = 0;
-  advance_clk();
+  tb.reset(dut->i_clk, dut->i_rst);
 
   search_routine(0, 255, 2, true);
   lock_routine(true);
@@ -270,6 +248,5 @@ int main(int argc, char **argv) {
 
   monitor.write_csv("search_lock_waveform.csv");
 
-  tfp->close();
   return 0;
 }

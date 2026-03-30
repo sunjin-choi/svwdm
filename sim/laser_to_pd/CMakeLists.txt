@@ -7,7 +7,6 @@
 get_filename_component(TB_NAME "${CMAKE_CURRENT_SOURCE_DIR}" NAME)
 
 set(VERI_SRC "${VERILOG_SIM_DIR}/${TB_NAME}/dut.sv")
-set(SIM_SOURCES "${VERILOG_SIM_DIR}/${TB_NAME}/tb.cpp")
 add_verilog_library_sources(VERI_SRC PHOTONICS)
 
 message(STATUS "${TB_NAME} sources: ${VERI_SRC}")
@@ -21,9 +20,8 @@ add_verilated_testbench(
   ${VERI_SRC}
   VERILATOR_ARGS
   ${VERI_ARGS}
-  # INCLUDE_DIRS "${VERILOG_SIM_DIR}/phase_tracking/sw/include"
-  EXTRA_SRC
-  ${SIM_SOURCES}
+  INCLUDE_DIRS
+  "${CPP_LIB_DIR}"
   ADD_WAVE_TARGET
   PREFIX
   Vsim)

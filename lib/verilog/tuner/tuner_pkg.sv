@@ -3,8 +3,8 @@ package tuner_pkg;
   // ----------------------------------------------------------------------
   // Parameters
   // ----------------------------------------------------------------------
-  `define TUNER_CMD_WIDTH 5
-  `define TUNER_STATE_WIDTH 5
+  localparam int TUNER_CMD_WIDTH   = 5;
+  localparam int TUNER_STATE_WIDTH = 5;
 
   // ----------------------------------------------------------------------
   // Local Parameters
@@ -13,14 +13,14 @@ package tuner_pkg;
   // ----------------------------------------------------------------------
   // Types
   // ----------------------------------------------------------------------
-  typedef enum logic [`TUNER_CMD_WIDTH-1:0] {
+  typedef enum logic [TUNER_CMD_WIDTH-1:0] {
     INIT,
     SEARCH,
     LOCK,
     UNLOCK
   } tuner_cmd_e;
 
-  typedef enum logic [`TUNER_STATE_WIDTH-1:0] {
+  typedef enum logic [TUNER_STATE_WIDTH-1:0] {
     IDLE,
     ACTIVE,
     DONE,
