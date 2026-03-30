@@ -1,0 +1,5 @@
+# tuner_phy_detect_if_state_e
+Name = detect_if_state
+Bits = 1
+0 READ
+1 DETECT

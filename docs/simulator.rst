@@ -46,3 +46,8 @@ Workflow
     *   Use Verilator to compile the SystemVerilog code into a C++ model.
     *   Compile the C++ testbench (`tb.cpp`).
     *   Link the Verilated model and the C++ testbench to create a simulation executable.
+
+Waveform Viewing
+----------------
+
+For waveform viewing with Surfer in this repo, see :doc:`surfer`.

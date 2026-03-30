@@ -1,0 +1,7 @@
+# tuner_phy_lock_state_e
+Name = lock_state
+Bits = 5
+0 IDLE
+1 INIT
+2 ACTIVE
+3 INTR

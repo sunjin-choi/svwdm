@@ -73,6 +73,41 @@ To build the project, you will need to have CMake and Verilator installed. If Ve
     make run-hello_world
     ```
 
+## Waveform Viewing With Surfer
+
+If `surfer` is installed, sourcing `sourceme.sh` will point `WAVEFORM_VIEWER` at the repo-local launcher in `scripts/open_wave_surfer.sh`. Existing `make wave-<simulation_name>` targets will then open Surfer instead of GTKWave.
+
+Project-local Surfer assets live under `.surfer`:
+
+*   `default.sucl`: fallback startup view for any waveform
+*   `<simulation_name>.sucl`: focused startup views for selected simulations
+*   `mappings/*.map`: enum/state translators for tuner state buses
+
+Recommended flow:
+
+1.  Source the environment:
+    ```bash
+    source sourceme.sh
+    ```
+2.  Open a waveform from the repo root:
+    ```bash
+    scripts/wave.sh tuner_search_row
+    ```
+    This refreshes the CMake build tree and then runs `cmake --build build --target wave-tuner_search_row`.
+3.  On first open, Surfer will apply the repo command file for that simulation.
+4.  If you customize the layout, save it as `.surfer/<simulation_name>.ron`. The launcher will prefer that saved state on future opens.
+
+Full repo-specific Surfer usage notes are in `docs/surfer.rst`.
+
+Useful mapping formats available in Surfer's format picker:
+
+*   `search_state`
+*   `lock_state`
+*   `detect_state`
+*   `detect_if_state`
+*   `ctrl_arb_state`
+*   `ctrl_arb_if_state`
+
 ## Requirements
 
 Tested under:

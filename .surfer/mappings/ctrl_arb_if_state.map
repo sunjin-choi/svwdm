@@ -1,0 +1,5 @@
+# tuner_phy_ctrl_arb_if_state_e
+Name = ctrl_arb_if_state
+Bits = 2
+0 TUNE
+1 UPDATE
