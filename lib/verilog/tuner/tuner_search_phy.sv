@@ -42,8 +42,8 @@ module tuner_search_phy #(
     /*// Power Detector Interface
      *tuner_pwr_detect_if.consumer pwr_detect_if,*/
 
-    // Tuning transaction interface
-    tuner_txn_if.ctrl txn_if,
+    // Controller Arbiter Interface
+    tuner_ctrl_arb_if.producer ctrl_arb_if,
 
     // Search Interface for local search
     tuner_search_if.producer search_if,
@@ -81,6 +81,10 @@ module tuner_search_phy #(
   /*typedef tuner_pwr_detect_if.pwr_detect_state_e search_active_state_e;*/
   /*typedef tuner_phy_detect_if_state_e search_active_state_e;*/
 
+  // Arbiter I/F state for communication with ring tuner and power detector
+  // This is currently the only substate in SEARCH_ACTIVE
+  typedef tuner_phy_ctrl_arb_if_state_e search_active_state_e;
+
 
   // First half [0:SEARCH_PEAK_WINDOW_HALFSIZE-1]
   // Second half [SEARCH_PEAK_WINDOW_HALFSIZE:2*SEARCH_PEAK_WINDOW_HALFSIZE-1]
@@ -107,17 +111,27 @@ module tuner_search_phy #(
 
   /*logic pwr_read_fire;*/
   /*logic pwr_detect_fire;*/
-  logic txn_valid;
+  logic is_ctrl_active_state;
+  logic is_tune_state;
+  logic is_update_state;
+  logic tune_fire;
+  logic commit_fire;
+  logic tune_compute;
+  logic tune_compute_done;
+  logic update_commit_done;
+
+  // Internal state within SEARCH_ACTIVE for controller arbiter handshaking
+  search_active_state_e search_active_state, search_active_state_next;
 
   int search_active_cnt;
   int search_active_cnt_max;
   logic search_active_update;
   logic search_active_done;
-  logic is_ctrl_active_state;
 
   logic [DAC_WIDTH-1:0] ring_tune_step;
   logic [DAC_WIDTH-1:0] ring_tune;
   /*logic [DAC_WIDTH-1:0] ring_tune_prev;*/
+  logic [DAC_WIDTH-1:0] ring_tune_next;
 
   /*logic [ADC_WIDTH-1:0] ring_pwr_detected;
    *logic [ADC_WIDTH-1:0] ring_pwr_detected_prev;*/
@@ -240,12 +254,45 @@ module tuner_search_phy #(
    *assign pwr_detect_if.pwr_detect_refresh = (state == SEARCH_INIT);
    *assign search_active_update = pwr_detect_if.pwr_detect_update;*/
   // ----------------------------------------------------------------------
-  // SEARCH_ACTIVE - Transaction I/F
+  // SEARCH_ACTIVE - Controller Arbiter I/F
   // ----------------------------------------------------------------------
   assign is_ctrl_active_state = (state == SEARCH_ACTIVE);
-  assign search_active_update = txn_if.fire();
-  assign txn_if.val = is_ctrl_active_state && txn_valid;
-  assign txn_if.tune_code = ring_tune;
+  assign is_update_state = is_ctrl_active_state && (search_active_state == CTRL_UPDATE);
+  assign is_tune_state = is_ctrl_active_state && (search_active_state == CTRL_TUNE);
+
+  assign tune_fire = ctrl_arb_if.get_ctrl_tune_ack(CH_SEARCH);
+  assign commit_fire = ctrl_arb_if.get_ctrl_commit_ack(CH_SEARCH);
+
+  always_ff @(posedge i_clk or posedge i_rst) begin
+    if (i_rst) begin
+      search_active_state <= CTRL_TUNE;
+    end
+    else if (search_refresh) begin
+      search_active_state <= CTRL_TUNE;
+    end
+    else begin
+      search_active_state <= search_active_state_next;
+    end
+  end
+
+  always_comb begin
+    search_active_state_next = search_active_state;
+    if (is_ctrl_active_state) begin
+      case (search_active_state)
+        CTRL_TUNE: if (tune_fire) search_active_state_next = CTRL_UPDATE;
+        CTRL_UPDATE: if (commit_fire) search_active_state_next = CTRL_TUNE;
+        default: search_active_state_next = CTRL_UPDATE;
+      endcase
+    end
+  end
+
+  assign ctrl_arb_if.ctrl_active[CH_SEARCH] = is_ctrl_active_state;
+  assign ctrl_arb_if.ctrl_refresh[CH_SEARCH] = search_refresh;
+  assign ctrl_arb_if.tune_val[CH_SEARCH] = is_tune_state && tune_compute_done;
+
+  assign update_commit_done = is_update_state;
+  assign ctrl_arb_if.commit_rdy[CH_SEARCH] = is_update_state && update_commit_done;
+  assign search_active_update = is_ctrl_active_state && commit_fire;
 
   // ----------------------------------------------------------------------
 
@@ -253,17 +300,36 @@ module tuner_search_phy #(
   // SEARCH_ACTIVE - Ring Tuning
   // ----------------------------------------------------------------------
   assign ring_tune_step = (1 << i_dig_ring_tune_stride);
+  assign tune_compute = is_tune_state && !tune_compute_done;
 
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
       ring_tune <= '0;
-    end else if (search_refresh) begin
+    end
+    else if (search_refresh) begin
       ring_tune <= i_dig_ring_tune_start;
-    end else if (txn_if.fire()) begin
+    end
+    else if (tune_compute) begin
       ring_tune <= ring_tune + ring_tune_step;
     end
   end
 
+  always_ff @(posedge i_clk or posedge i_rst) begin
+    if (i_rst) begin
+      tune_compute_done <= 1'b0;
+    end
+    else if (search_refresh) begin
+      tune_compute_done <= 1'b0;
+    end
+    else if (is_tune_state) begin
+      tune_compute_done <= 1'b1;
+    end
+    else if (is_update_state) begin
+      tune_compute_done <= 1'b0;
+    end
+  end
+
+  assign ctrl_arb_if.ring_tune[CH_SEARCH] = ring_tune;
   assign o_dig_ring_tune = ring_tune;
 
   // ----------------------------------------------------------------------
@@ -283,17 +349,6 @@ module tuner_search_phy #(
     end
   end
 
-  always_ff @(posedge i_clk or posedge i_rst) begin
-    if (i_rst) begin
-      txn_valid <= 1'b0;
-    end
-    else if (search_refresh) begin
-      txn_valid <= 1'b1;
-    end
-    else if (txn_if.fire()) begin
-      txn_valid <= ~search_active_done;
-    end
-  end
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -313,10 +368,12 @@ module tuner_search_phy #(
     end
     else if (search_active_update) begin
       // Receive the committed ring tune and power from the controller arbiter
-      pwr_det_track   <= txn_if.meas_power;
-      ring_tune_track <= ring_tune;
+      pwr_det_track   <= ctrl_arb_if.pwr_commit;
+      ring_tune_track <= ctrl_arb_if.ring_tune_commit;
     end
   end
+
+  // Majority-Vote
   /*assign pwr_decremented = (i_dig_pwr_detected < pwr_detected_track_window[0]);*/
   assign pwr_incremented = pwr_det_track_win[0] > pwr_det_track_win[1];
   assign pwr_decremented = pwr_det_track_win[0] < pwr_det_track_win[1];
@@ -474,4 +531,3 @@ module tuner_search_phy #(
 endmodule
 
 `default_nettype wire
-
