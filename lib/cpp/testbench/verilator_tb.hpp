@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 template <typename TDut> class VerilatorTb {
 public:
