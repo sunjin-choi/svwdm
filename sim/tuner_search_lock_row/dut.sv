@@ -64,7 +64,10 @@ module dut #(
     output logic [ADC_WIDTH-1:0] o_adc_drop[NUM_CHANNEL]
 );
 
-  `DECLARE_WAVES_TYPE(2);
+  typedef struct {
+    wave_t wave_bundle[NUM_WAVES-1:0];
+  } WAVES_TYPE;
+  localparam int WAVES_WIDTH = NUM_WAVES;
 
   // ----------------------------------------------------------------------
   // Interfaces
