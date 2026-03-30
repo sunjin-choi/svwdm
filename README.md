@@ -47,36 +47,77 @@ The `sim/` directory contains the C++ testbenches for simulating the RTL modules
 
 To build the project, you will need to have CMake and Verilator installed.
 
-1.  Create a build directory:
+1.  Configure the build directory:
     ```bash
-    mkdir build
-    cd build
+    cmake -S . -B build
     ```
 
-2.  Run CMake:
+2.  Build all simulations:
     ```bash
-    cmake ..
+    cmake --build build -j
     ```
 
-3.  Build the simulations:
+3.  Run a specific simulation:
     ```bash
-    make
-    ```
-
-4.  Run a specific simulation:
-    ```bash
-    make run-<simulation_name>
+    cmake --build build --target run-<simulation_name> -j1
     ```
     For example, to run the `hello_world` simulation:
     ```bash
-    make run-hello_world
+    cmake --build build --target run-hello_world -j1
     ```
+
+4.  Run the tuner simulations with the helper script:
+    ```bash
+    ./scripts/run_tuner_sims.sh
+    ```
+
+If you add new RTL files, rerun the configure step so CMake regenerates the
+Verilator source list.
 
 ## Requirements
 
 Tested under:
 - cmake v3.31.1
 - verilator 5.014
+
+## Formatting
+
+This repo now includes formatter configuration for:
+
+- SystemVerilog: `verible-verilog-format`
+- C/C++: `clang-format`
+- Python: `ruff`
+- Shell: `shfmt`
+- CMake: `cmake-format`
+
+Install the formatter toolchain and git hooks with:
+
+```bash
+./scripts/bootstrap_formatters.sh
+```
+
+Format the whole repo with:
+
+```bash
+./scripts/format_repo.sh
+```
+
+Check formatting without modifying files with:
+
+```bash
+./scripts/format_repo.sh check
+```
+
+The same toolchain is reusable across sibling repos as long as they carry their
+own repo-local config files.
+
+### Vim Verible Autoformat
+
+This repo also includes a reusable Vim snippet at `vim/verible_format.vim`.
+Source it from your `~/.vimrc` to autoformat `*.sv`, `*.svh`, `*.v`, and
+`*.vh` on save with `verible-verilog-format`. The snippet looks up the nearest
+`.verible-verilog-format` file from the buffer directory upward, so the same
+Vim config can work across multiple repos.
 
 ## Documentation
 

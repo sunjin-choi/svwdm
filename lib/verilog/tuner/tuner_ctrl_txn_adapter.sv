@@ -42,11 +42,9 @@ module tuner_ctrl_txn_adapter #(
     endcase
   end
 
-  // Refresh pulse when new transaction begins
-  always_ff @(posedge i_clk or posedge i_rst) begin
-    if (i_rst) refresh_pulse <= 1'b0;
-    else refresh_pulse <= (state == IDLE) && (state_next == WAIT_TUNE);
-  end
+  // Pulse refresh in the launch cycle so the arbiter/power detector reset
+  // before the first WAIT_TUNE handshake, rather than one cycle later.
+  assign refresh_pulse = (state == IDLE) && txn_if.val;
 
   // Drive control arbiter interface
   assign ctrl_if.ctrl_active[CHANNEL]  = (state != IDLE);

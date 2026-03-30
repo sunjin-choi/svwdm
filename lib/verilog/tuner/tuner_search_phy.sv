@@ -315,6 +315,8 @@ module tuner_search_phy #(
       // Receive the committed ring tune and power from the controller arbiter
       pwr_det_track   <= txn_if.meas_power;
       ring_tune_track <= ring_tune;
+    end
+  end
   /*assign pwr_decremented = (i_dig_pwr_detected < pwr_detected_track_window[0]);*/
   assign pwr_incremented = pwr_det_track_win[0] > pwr_det_track_win[1];
   assign pwr_decremented = pwr_det_track_win[0] < pwr_det_track_win[1];
