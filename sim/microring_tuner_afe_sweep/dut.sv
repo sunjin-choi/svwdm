@@ -60,11 +60,16 @@ module dut (
     end
   end
 
-  tuner_pwr_detect_if #(.ADC_WIDTH(`ADC_WIDTH)) pwr_detect_if ();
-  assign pwr_detect_if.read_val = 1'b1;
-  assign pwr_detect_if.detect_rdy = 1'b1;
-  assign o_dig_pwr_thru_detect_val = pwr_detect_if.detect_val;
+  tuner_pwr_detect_if #(
+      .ADC_WIDTH(`ADC_WIDTH)
+  ) pwr_detect_if (
+      .i_clk(i_clk),
+      .i_rst(i_rst)
+  );
+  assign o_dig_pwr_thru_detect_val = pwr_detect_if.get_detect_ack();
   assign o_dig_pwr_thru_detect = pwr_detect_if.detect_data;
+  assign pwr_detect_if.pwr_detect_active = 1'b1;
+  assign pwr_detect_if.pwr_detect_refresh = 1'b0;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -147,4 +152,3 @@ module dut (
 endmodule
 
 `default_nettype wire
-
