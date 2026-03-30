@@ -106,7 +106,7 @@ function(add_verilated_testbench name top_module cpp_main)
   if(NOT TARGET ${RUN_TARGET})
     add_custom_target(
       ${RUN_TARGET}
-      COMMAND ${name}
+      COMMAND ${CMAKE_COMMAND} -E env WAVEFORM_FILE=${WAVEFORM_FILE} ${name}
       DEPENDS ${name}
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMENT "Running ${name}")

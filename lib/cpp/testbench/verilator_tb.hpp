@@ -4,6 +4,8 @@
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 
+#include <cassert>
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <utility>
@@ -20,6 +22,12 @@ public:
         clk_period_ps_(clk_period_ps) {
     Verilated::traceEverOn(true);
     context_->commandArgs(argc, argv);
+    assert((clk_period_ps_ % 2) == 0 && "clk_period_ps must be even");
+
+    if (const char *waveform_env = std::getenv("WAVEFORM_FILE");
+        waveform_env != nullptr && waveform_env[0] != '\0') {
+      waveform_file_ = waveform_env;
+    }
 
     trace_->set_time_unit("ps");
     trace_->set_time_resolution("ps");
