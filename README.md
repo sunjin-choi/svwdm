@@ -35,6 +35,14 @@ The `lib/verilog/` directory contains the core SystemVerilog modules for the WDM
 Package compile order is defined in `cmake/VerilogPackages.cmake`.  Adjust this
 file if additional packages are added or the order needs to change.
 
+### Search Transaction Update
+
+![Tuner search architecture update](docs/_static/tuner_search_txn_update.svg)
+
+This PR changes the search path so `tuner_search_phy` issues a single
+transaction through `tuner_txn_if` and `tuner_ctrl_txn_adapter`, while the
+shared `tuner_ctrl_arb_phy` and lock path stay in place.
+
 ### Simulation (`sim/`)
 
 The `sim/` directory contains the C++ testbenches for simulating the RTL modules. Each subdirectory is a self-contained simulation environment.

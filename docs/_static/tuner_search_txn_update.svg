@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">Tuner Search Architecture Update</title>
+  <desc id="desc">Before and after diagram showing tuner_search_phy changing from direct ctrl_arb_if wiring to a transaction interface and adapter.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#355070"/>
+    </marker>
+    <marker id="arrowGray" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6c757d"/>
+    </marker>
+    <style>
+      .title { font: 700 28px sans-serif; fill: #1f2933; }
+      .subtitle { font: 600 18px sans-serif; fill: #1f2933; }
+      .label { font: 600 15px monospace; fill: #102a43; }
+      .note { font: 500 14px sans-serif; fill: #334e68; }
+      .small { font: 500 13px sans-serif; fill: #486581; }
+      .panel { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; rx: 18; ry: 18; }
+      .old { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 2; rx: 14; ry: 14; }
+      .new { fill: #e0f2fe; stroke: #0284c7; stroke-width: 2; rx: 14; ry: 14; }
+      .shared { fill: #ecfdf5; stroke: #059669; stroke-width: 2; rx: 14; ry: 14; }
+      .unchanged { fill: #fef3c7; stroke: #d97706; stroke-width: 2; rx: 14; ry: 14; }
+      .arrowOld { stroke: #6c757d; stroke-width: 3; fill: none; marker-end: url(#arrowGray); }
+      .arrowNew { stroke: #355070; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .arrowDash { stroke: #355070; stroke-width: 2.5; fill: none; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .divider { stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 8 8; }
+    </style>
+  </defs>
+
+  <rect x="20" y="20" width="1160" height="720" class="panel"/>
+  <text x="60" y="70" class="title">Tuner Search Architecture Update</text>
+  <text x="60" y="102" class="note">This PR decouples search control from the arbiter handshake by inserting a transaction interface and adapter.</text>
+
+  <line x1="600" y1="130" x2="600" y2="700" class="divider"/>
+
+  <text x="90" y="155" class="subtitle">Before</text>
+  <text x="670" y="155" class="subtitle">After</text>
+
+  <rect x="70" y="190" width="200" height="76" class="old"/>
+  <text x="102" y="223" class="label">tuner_search_phy</text>
+  <text x="103" y="247" class="small">directly drove ctrl_arb_if</text>
+
+  <rect x="330" y="190" width="200" height="76" class="old"/>
+  <text x="350" y="223" class="label">tuner_ctrl_arb_if</text>
+  <text x="384" y="247" class="small">producer modport</text>
+
+  <rect x="330" y="330" width="200" height="76" class="old"/>
+  <text x="350" y="363" class="label">tuner_ctrl_arb_phy</text>
+  <text x="367" y="387" class="small">tune + sync + commit</text>
+
+  <rect x="330" y="470" width="200" height="88" class="shared"/>
+  <text x="385" y="503" class="label">shared HW</text>
+  <text x="353" y="527" class="small">AFE tuner + pwr detect</text>
+  <text x="388" y="549" class="small">search + lock share</text>
+
+  <path d="M 270 228 L 330 228" class="arrowOld"/>
+  <path d="M 430 266 L 430 330" class="arrowOld"/>
+  <path d="M 430 406 L 430 470" class="arrowOld"/>
+  <path d="M 330 385 C 250 385, 250 260, 200 260" class="arrowOld"/>
+  <text x="95" y="438" class="small">commit path returned through</text>
+  <text x="95" y="458" class="small">the shared control interface</text>
+  <text x="85" y="610" class="note">Problem: search FSM had to know arbiter-level tune/commit sequencing.</text>
+
+  <rect x="650" y="190" width="170" height="76" class="new"/>
+  <text x="677" y="223" class="label">tuner_search_phy</text>
+  <text x="699" y="247" class="small">issues 1 txn</text>
+
+  <rect x="860" y="190" width="180" height="76" class="new"/>
+  <text x="888" y="223" class="label">tuner_txn_if</text>
+  <text x="899" y="247" class="small">val / rdy / code / pwr</text>
+
+  <rect x="860" y="320" width="180" height="90" class="new"/>
+  <text x="874" y="355" class="label">tuner_ctrl_txn_adapter</text>
+  <text x="905" y="379" class="small">maps txn to arbiter</text>
+  <text x="895" y="399" class="small">WAIT_TUNE / WAIT_COMMIT</text>
+
+  <rect x="860" y="470" width="180" height="76" class="old"/>
+  <text x="880" y="503" class="label">tuner_ctrl_arb_if</text>
+  <text x="914" y="527" class="small">producer modport</text>
+
+  <rect x="860" y="600" width="180" height="76" class="old"/>
+  <text x="880" y="633" class="label">tuner_ctrl_arb_phy</text>
+  <text x="897" y="657" class="small">existing shared arbiter</text>
+
+  <rect x="1080" y="600" width="90" height="76" class="shared"/>
+  <text x="1098" y="633" class="label">shared</text>
+  <text x="1106" y="657" class="small">HW</text>
+
+  <rect x="650" y="470" width="170" height="76" class="unchanged"/>
+  <text x="682" y="503" class="label">tuner_lock_phy</text>
+  <text x="677" y="527" class="small">unchanged path</text>
+
+  <path d="M 820 228 L 860 228" class="arrowNew"/>
+  <path d="M 950 266 L 950 320" class="arrowNew"/>
+  <path d="M 950 410 L 950 470" class="arrowNew"/>
+  <path d="M 950 546 L 950 600" class="arrowNew"/>
+  <path d="M 1040 638 L 1080 638" class="arrowNew"/>
+  <path d="M 820 508 L 860 508" class="arrowNew"/>
+
+  <path d="M 860 236 C 760 236, 760 360, 735 360 C 710 360, 710 270, 650 270" class="arrowDash"/>
+  <text x="661" y="294" class="small">rdy + meas_power return on txn_if</text>
+
+  <text x="650" y="575" class="note">Search path is now layered:</text>
+  <text x="650" y="596" class="note">search issues a transaction, adapter handles arbiter sequencing, shared arbiter stays in place.</text>
+</svg>
