@@ -229,14 +229,13 @@ int main(int argc, char **argv) {
       advance_clk();
     }
 
-    dut->i_lock_intr_rdy[ring] = 0;
-    advance_clk();
-    dut->i_lock_intr_rdy[ring] = 1;
+    dut->i_lock_intr_val[ring] = 1;
 
     /*while (dut->o_lock_state[ring] != LOCK_INTR) {*/
     while (dut->o_lock_state[ring] != 3) {
       advance_clk();
     }
+    dut->i_lock_intr_val[ring] = 0;
 
     for (int i = 0; i < 10; ++i) {
       advance_clk();
@@ -277,7 +276,7 @@ int main(int argc, char **argv) {
     dut->i_search_trig_val[r] = 0;
     dut->i_search_done_rdy[r] = 0;
     dut->i_lock_trig_val[r] = 0;
-    dut->i_lock_intr_rdy[r] = 1;
+    dut->i_lock_intr_val[r] = 0;
     dut->i_lock_resume_val[r] = 0;
     dut->i_cfg_ring_pwr_peak_ratio[r] = 8;
     dut->i_cfg_lock_tune_stride[r] = kLockTuneStride[r];

@@ -47,8 +47,8 @@ module dut #(
     // Lock Interface
     input var  logic i_lock_trig_val,
     output var logic o_lock_trig_rdy,
-    input var  logic i_lock_intr_rdy,
-    output var logic o_lock_intr_val,
+    input var  logic i_lock_intr_val,
+    output var logic o_lock_intr_rdy,
     input var  logic i_lock_resume_val,
     output var logic o_lock_resume_rdy,
 
@@ -217,8 +217,8 @@ module dut #(
   // ----------------------------------------------------------------------
   assign lock_if.trig_val = i_lock_trig_val;
   assign o_lock_trig_rdy = lock_if.trig_rdy;
-  assign o_lock_intr_val = lock_if.intr_val;
-  assign lock_if.intr_rdy = i_lock_intr_rdy;
+  assign lock_if.intr_val = i_lock_intr_val;
+  assign o_lock_intr_rdy = lock_if.intr_rdy;
   assign lock_if.resume_val = i_lock_resume_val;
   assign o_lock_resume_rdy = lock_if.resume_rdy;
   // ----------------------------------------------------------------------

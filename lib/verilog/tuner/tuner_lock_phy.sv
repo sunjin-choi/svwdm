@@ -94,8 +94,6 @@ module tuner_lock_phy #(
   logic lock_resume_fire;
   logic lock_restore;
 
-  logic intr_pending;
-
   logic lock_refresh;
   logic session_start_pending;
 
@@ -159,20 +157,9 @@ module tuner_lock_phy #(
   assign lock_trig_fire   = lock_if.get_trig_ack();
 
   // Interrupt handshake
-  always_ff @(posedge i_clk or posedge i_rst) begin
-    if (i_rst) begin
-      intr_pending <= 1'b0;
-    end
-    else if (state != LOCK_ACTIVE) begin
-      intr_pending <= 1'b0;
-    end
-    else begin
-      if (!lock_if.intr_rdy) intr_pending <= 1'b1;
-      else if (lock_if.get_intr_ack()) intr_pending <= 1'b0;
-    end
-  end
-
-  assign lock_if.intr_val = intr_pending;
+  // Graceful stop: accept interrupt only once the current tune/measure
+  // transaction has completed.
+  assign lock_if.intr_rdy = (state == LOCK_ACTIVE) && txn_if.rdy;
   assign lock_intr_fire = (state == LOCK_ACTIVE) && lock_if.get_intr_ack();
 
   // Resume handshake
