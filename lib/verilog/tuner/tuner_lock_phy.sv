@@ -53,8 +53,8 @@ module tuner_lock_phy #(
 
     /*input var logic i_cfg_search_en,*/
 
-    // Controller Arbiter Interface
-    tuner_ctrl_arb_if.producer ctrl_arb_if,
+    // Tuning transaction interface
+    tuner_txn_if.ctrl txn_if,
 
     // Tuner Controller Interface
     tuner_lock_if.producer lock_if
@@ -72,10 +72,6 @@ module tuner_lock_phy #(
   // ----------------------------------------------------------------------
   // Internal States and Parameters
   // ----------------------------------------------------------------------
-  // Active during the LOCK_ACTIVE state
-  /*typedef tuner_phy_ctrl_arb_if_state_e lock_active_state_e;*/
-  typedef tuner_phy_ctrl_arb_if_state_e lock_active_state_e;
-
   // This is specific to the lock scheme, which is slope detection-based
   // Runs atop the lock_active_state_e which are pwr-detect/tune substates
   typedef enum logic [2:0] {
@@ -91,8 +87,6 @@ module tuner_lock_phy #(
   localparam int LockDeltaThresWidth = $clog2(LOCK_DELTA_WINDOW_SIZE + 1);
   localparam logic [LockDeltaThresWidth-1:0] LockDeltaWindowSizeValue =
       LockDeltaThresWidth'(LOCK_DELTA_WINDOW_SIZE);
-  lock_active_state_e lock_active_state, lock_active_state_next;
-
   lock_track_state_e lock_track_state, lock_track_state_next;
 
   logic lock_trig_fire;
@@ -103,8 +97,8 @@ module tuner_lock_phy #(
   logic intr_pending;
 
   logic lock_refresh;
+  logic session_start_pending;
 
-  logic is_lock_active;
   logic lock_active_update;
   logic lock_delta_update;
 
@@ -136,9 +130,7 @@ module tuner_lock_phy #(
   logic pwr_decremented_vote;
   logic [LockDeltaThresWidth-1:0] lock_pwr_delta_thres_eff;
 
-  logic is_ctrl_active_state, is_update_state, is_tune_state;
-  logic tune_fire, commit_fire;
-  logic tune_compute, tune_compute_done, update_commit_done;
+  logic is_ctrl_active_state;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -235,63 +227,29 @@ module tuner_lock_phy #(
   // ----------------------------------------------------------------------
   // LOCK_ACTIVE - Controller Arbiter I/F
   // ----------------------------------------------------------------------
-  // Super-state for active control
   assign is_ctrl_active_state = (state == LOCK_ACTIVE);
-  // Update sub-state: receive committed ring tune and power
-  assign is_update_state = is_ctrl_active_state && (lock_active_state == CTRL_UPDATE);
-  // Tune sub-state: compute tuner code
-  assign is_tune_state = is_ctrl_active_state && (lock_active_state == CTRL_TUNE);
+  assign lock_active_update = txn_if.fire();
+  assign txn_if.val = is_ctrl_active_state;
+  assign txn_if.session_start = is_ctrl_active_state && session_start_pending;
+  assign txn_if.session_active = is_ctrl_active_state;
+  assign txn_if.tune_code = ring_tune;
 
-  assign tune_fire = ctrl_arb_if.get_ctrl_tune_ack(CH_LOCK);
-  assign commit_fire = ctrl_arb_if.get_ctrl_commit_ack(CH_LOCK);
-
-  // All update logics at LOCK_ACTIVE are triggered at commit_fire
-  assign lock_active_update = is_ctrl_active_state && commit_fire;
-
-  // Internal state for controller arbiter
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
-      lock_active_state <= CTRL_TUNE;  // Start with CTRL_TUNE
+      session_start_pending <= 1'b0;
     end
     else if (lock_refresh) begin
-      lock_active_state <= CTRL_TUNE;  // Reset to CTRL_TUNE on refresh
+      session_start_pending <= 1'b1;
     end
-    else begin
-      lock_active_state <= lock_active_state_next;
-    end
-  end
-
-  // Advance states only at LOCK_ACTIVE
-  always_comb begin
-    lock_active_state_next = lock_active_state;
-    if (is_ctrl_active_state) begin
-      case (lock_active_state)
-        CTRL_TUNE: if (tune_fire) lock_active_state_next = CTRL_UPDATE;
-        CTRL_UPDATE: if (commit_fire) lock_active_state_next = CTRL_TUNE;
-        default: lock_active_state_next = CTRL_UPDATE;  // Reset to CTRL_TUNE on error
-      endcase
+    else if (txn_if.fire()) begin
+      session_start_pending <= 1'b0;
     end
   end
-
-  /*assign ctrl_arb_if.ctrl_active = is_ctrl_active_state;
-   *assign ctrl_arb_if.ctrl_refresh = lock_refresh;*/
-  assign ctrl_arb_if.ctrl_active[CH_LOCK] = is_ctrl_active_state;
-  assign ctrl_arb_if.ctrl_refresh[CH_LOCK] = lock_refresh;
-
-  assign ctrl_arb_if.tune_val[CH_LOCK] = is_tune_state && tune_compute_done;
-
-  // commit is instantaneous
-  assign update_commit_done = is_update_state;
-  assign ctrl_arb_if.commit_rdy[CH_LOCK] = is_update_state && update_commit_done;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
   // LOCK_ACTIVE - Ring Tuning
   // ----------------------------------------------------------------------
-  // Step ring tuner at pwr detect (let pwr detector to deal with analog delays)
-  assign tune_compute = is_tune_state && !tune_compute_done;
-
-  // Update the ring tune base and delta
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
       ring_tune_base  <= '0;
@@ -301,26 +259,9 @@ module tuner_lock_phy #(
       ring_tune_base  <= i_cfg_ring_tune_start;
       ring_tune_delta <= '0;
     end
-    else if (tune_compute) begin
+    else if (lock_active_update) begin
       ring_tune_base  <= ring_tune_base_next;
       ring_tune_delta <= ring_tune_delta_next;
-    end
-  end
-
-  // Control tune_compute pulse
-  always_ff @(posedge i_clk or posedge i_rst) begin
-    if (i_rst) begin
-      tune_compute_done <= 1'b0;
-    end
-    else if (lock_refresh) begin
-      tune_compute_done <= 1'b0;
-    end
-    // Assume single-cycle tuner code compute (toggle done immediately)
-    else if (is_tune_state) begin
-      tune_compute_done <= 1'b1;
-    end
-    else if (is_update_state) begin
-      tune_compute_done <= 1'b0;
     end
   end
 
@@ -343,7 +284,6 @@ module tuner_lock_phy #(
   end
 
   assign ring_tune_next = ring_tune_base + ring_tune_delta;
-  assign ctrl_arb_if.ring_tune[CH_LOCK] = ring_tune;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -367,12 +307,12 @@ module tuner_lock_phy #(
       pwr_dec_track_win[0]   <= '0;
     end
     else if (lock_delta_update) begin
-      ring_tune_track_win[0] <= ctrl_arb_if.ring_tune_commit;
-      pwr_det_track_win[0]   <= ctrl_arb_if.pwr_commit;
+      ring_tune_track_win[0] <= ring_tune;
+      pwr_det_track_win[0]   <= txn_if.meas_power;
 
       if (delta_cnt != 0) begin  // drop the very first, which is invalid comparison
-        pwr_inc_track_win[0] <= (ctrl_arb_if.pwr_commit > pwr_det_track_win[0]) ? 1'b1 : 1'b0;
-        pwr_dec_track_win[0] <= (ctrl_arb_if.pwr_commit < pwr_det_track_win[0]) ? 1'b1 : 1'b0;
+        pwr_inc_track_win[0] <= (txn_if.meas_power > pwr_det_track_win[0]) ? 1'b1 : 1'b0;
+        pwr_dec_track_win[0] <= (txn_if.meas_power < pwr_det_track_win[0]) ? 1'b1 : 1'b0;
       end
     end
   end

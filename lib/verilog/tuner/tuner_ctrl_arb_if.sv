@@ -72,16 +72,28 @@ interface tuner_ctrl_arb_if #(
   // 2. If one claims ring_tune, it should also claim commit
   // TODO: implemenet explicit channel select instead?
   function automatic tuner_ctrl_ch_e select_channel();
+    logic search_session_start, lock_session_start;
+    logic search_active, lock_active;
     logic search_tune_ack, search_commit_ack;
     logic lock_tune_ack, lock_commit_ack;
 
+    search_session_start = ctrl_refresh[CH_SEARCH];
+    lock_session_start = ctrl_refresh[CH_LOCK];
+    search_active = ctrl_active[CH_SEARCH];
+    lock_active = ctrl_active[CH_LOCK];
     search_tune_ack = get_ctrl_tune_ch_ack(CH_SEARCH);
     search_commit_ack = get_ctrl_commit_ch_ack(CH_SEARCH);
     lock_tune_ack = get_ctrl_tune_ch_ack(CH_LOCK);
     lock_commit_ack = get_ctrl_commit_ch_ack(CH_LOCK);
 
-    // TODO: does this need to be stateful?
-    if (search_tune_ack) return CH_SEARCH;
+    // Ownership is session-scoped. Prefer a newly requested session, otherwise
+    // keep the current owner while it remains active.
+    if (search_session_start) return CH_SEARCH;
+    else if (lock_session_start) return CH_LOCK;
+    else if (ctrl_active[ch_prev]) return ch_prev;
+    else if (search_active) return CH_SEARCH;
+    else if (lock_active) return CH_LOCK;
+    else if (search_tune_ack) return CH_SEARCH;
     else if (lock_tune_ack) return CH_LOCK;
     else if (search_commit_ack) return CH_SEARCH;
     else if (lock_commit_ack) return CH_LOCK;
@@ -122,12 +134,7 @@ interface tuner_ctrl_arb_if #(
 
   // FIXME
   function automatic logic get_ctrl_refresh();
-    // ***CAUTION***
-    // One channel should never be in the "refresh" state while another
-    // is in active state
-    // Currently it is not happening, as refresh is only happening during INIT
-    // TODO: flag error state
-    return ctrl_refresh[CH_SEARCH] || ctrl_refresh[CH_LOCK];
+    return ctrl_refresh[ch_curr];
   endfunction
 
   function automatic logic get_pwr_detect_active();
@@ -142,7 +149,7 @@ interface tuner_ctrl_arb_if #(
 
   // Polling functions
   function automatic logic any_ctrl_tune_val();
-    return tune_val[CH_SEARCH] || tune_val[CH_LOCK];
+    return ctrl_active[ch_curr] && tune_val[ch_curr];
   endfunction
 
   function automatic logic any_ctrl_tune_ack();
@@ -197,4 +204,3 @@ interface tuner_ctrl_arb_if #(
   // ----------------------------------------------------------------------
 
 endinterface
-

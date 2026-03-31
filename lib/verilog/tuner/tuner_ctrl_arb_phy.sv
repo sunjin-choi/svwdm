@@ -197,6 +197,9 @@ module tuner_ctrl_arb_phy #(
     if (i_rst) begin
       sync_cnt <= '0;
     end
+    else if (ctrl_refresh) begin
+      sync_cnt <= '0;
+    end
     else begin
       case (state)
         ARB_CTRL_INIT: sync_cnt <= '0;
@@ -240,9 +243,6 @@ module tuner_ctrl_arb_phy #(
 
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
-      ring_tune_track <= '0;
-    end
-    else if (ctrl_refresh) begin
       ring_tune_track <= '0;
     end
     else if (ring_tune_fire) begin

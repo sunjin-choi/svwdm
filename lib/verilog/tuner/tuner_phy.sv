@@ -85,6 +85,14 @@ module tuner_phy #(
       .i_rst(i_rst)
   );
 
+  tuner_txn_if #(
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH)
+  ) lock_txn_if (
+      .i_clk(i_clk),
+      .i_rst(i_rst)
+  );
+
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -127,6 +135,17 @@ module tuner_phy #(
       .ctrl_if(ctrl_arb_if.producer)
   );
 
+  tuner_ctrl_txn_adapter #(
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
+      .CHANNEL(CH_LOCK)
+  ) lock_txn_adapter (
+      .i_clk(i_clk),
+      .i_rst(i_rst),
+      .txn_if(lock_txn_if.arb),
+      .ctrl_if(ctrl_arb_if.producer)
+  );
+
   tuner_search_phy #(
       .DAC_WIDTH(DAC_WIDTH),
       .ADC_WIDTH(ADC_WIDTH),
@@ -161,7 +180,7 @@ module tuner_phy #(
       .i_dig_pwr_peak(i_cfg_pwr_peak),
       .i_dig_ring_tune_peak(i_cfg_ring_tune_peak),
 
-      .ctrl_arb_if(ctrl_arb_if.producer),
+      .txn_if(lock_txn_if.ctrl),
       .lock_if(lock_if)
   );
   // ----------------------------------------------------------------------

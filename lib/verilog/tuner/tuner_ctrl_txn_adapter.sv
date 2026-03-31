@@ -25,7 +25,7 @@ module tuner_ctrl_txn_adapter #(
 
   // State machine
   always_ff @(posedge i_clk or posedge i_rst) begin
-    if (i_rst) begin
+    if (i_rst || !txn_if.session_active) begin
       state <= IDLE;
     end else begin
       state <= state_next;
@@ -42,12 +42,13 @@ module tuner_ctrl_txn_adapter #(
     endcase
   end
 
-  // Pulse refresh in the launch cycle so the arbiter/power detector reset
-  // before the first WAIT_TUNE handshake, rather than one cycle later.
-  assign refresh_pulse = (state == IDLE) && txn_if.val;
+  // Pulse refresh only when launching the first transaction of a new session,
+  // so the arbiter/power detector reset once per session rather than once per
+  // tune/measure step.
+  assign refresh_pulse = (state == IDLE) && txn_if.val && txn_if.session_start;
 
   // Drive control arbiter interface
-  assign ctrl_if.ctrl_active[CHANNEL]  = (state != IDLE);
+  assign ctrl_if.ctrl_active[CHANNEL]  = txn_if.session_active;
   assign ctrl_if.ctrl_refresh[CHANNEL] = refresh_pulse;
 
   assign ctrl_if.ring_tune[CHANNEL] = txn_if.tune_code;
