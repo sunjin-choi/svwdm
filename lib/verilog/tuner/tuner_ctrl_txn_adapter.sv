@@ -21,7 +21,7 @@ module tuner_ctrl_txn_adapter #(
 
   typedef enum logic [1:0] {IDLE, WAIT_TUNE, WAIT_COMMIT, RESP} state_e;
   state_e state, state_next;
-  logic refresh_pulse;
+  logic session_request_pulse;
 
   // State machine
   always_ff @(posedge i_clk or posedge i_rst) begin
@@ -42,14 +42,14 @@ module tuner_ctrl_txn_adapter #(
     endcase
   end
 
-  // Pulse refresh only when launching the first transaction of a new session,
-  // so the arbiter/power detector reset once per session rather than once per
-  // tune/measure step.
-  assign refresh_pulse = (state == IDLE) && txn_if.val && txn_if.session_start;
+  // Request a new control session only when launching the first transaction.
+  // The arbiter converts this request into the granted ctrl_refresh pulse once
+  // the channel actually owns the plant.
+  assign session_request_pulse = (state == IDLE) && txn_if.val && txn_if.session_start;
 
   // Drive control arbiter interface
   assign ctrl_if.ctrl_active[CHANNEL]  = txn_if.session_active;
-  assign ctrl_if.ctrl_refresh[CHANNEL] = refresh_pulse;
+  assign ctrl_if.ctrl_refresh[CHANNEL] = session_request_pulse;
 
   assign ctrl_if.ring_tune[CHANNEL] = txn_if.tune_code;
   assign ctrl_if.tune_val[CHANNEL]  = (state == WAIT_TUNE) && txn_if.val;

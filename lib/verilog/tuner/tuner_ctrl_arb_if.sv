@@ -54,6 +54,8 @@ interface tuner_ctrl_arb_if #(
 
   // Internal signal
   tuner_ctrl_ch_e ch_curr, ch_prev;
+  logic           search_session_pending;
+  logic           lock_session_pending;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -67,32 +69,45 @@ interface tuner_ctrl_arb_if #(
     return commit_rdy[ch] && commit_val;
   endfunction
 
-  // Ownership is session-scoped. Keep the current owner until its session ends,
-  // then acquire the next owner from a new session start request.
+  function automatic logic has_session_request(tuner_ctrl_ch_e ch);
+    case (ch)
+      CH_SEARCH: return ctrl_refresh[CH_SEARCH] || search_session_pending;
+      CH_LOCK: return ctrl_refresh[CH_LOCK] || lock_session_pending;
+      default: return 1'b0;
+    endcase
+  endfunction
+
+  function automatic logic hold_current_owner();
+    return ctrl_active[ch_prev] && !has_session_request(ch_prev);
+  endfunction
+
+  // Ownership is session-scoped. Keep the current owner until its session
+  // ends, then acquire the next owner from a queued session-start request.
   function automatic tuner_ctrl_ch_e select_channel();
-    logic search_session_start, lock_session_start;
-    logic search_active, lock_active;
-
-    search_session_start = ctrl_refresh[CH_SEARCH];
-    lock_session_start = ctrl_refresh[CH_LOCK];
-    search_active = ctrl_active[CH_SEARCH];
-    lock_active = ctrl_active[CH_LOCK];
-
-    if (ctrl_active[ch_prev]) return ch_prev;
-    else if (search_session_start) return CH_SEARCH;
-    else if (lock_session_start) return CH_LOCK;
-    else if (search_active) return CH_SEARCH;
-    else if (lock_active) return CH_LOCK;
+    if (hold_current_owner()) return ch_prev;
+    else if (has_session_request(CH_SEARCH)) return CH_SEARCH;
+    else if (has_session_request(CH_LOCK)) return CH_LOCK;
     else
       return CH_NULL;
+  endfunction
+
+  function automatic logic get_ctrl_refresh_grant(tuner_ctrl_ch_e ch);
+    return (select_channel() == ch) && has_session_request(ch) && !hold_current_owner();
   endfunction
 
   // Update current channel
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
       ch_prev <= CH_SEARCH;  // Default to search channel on reset
+      search_session_pending <= 1'b0;
+      lock_session_pending   <= 1'b0;
     end
     else begin
+      search_session_pending <=
+          (search_session_pending || ctrl_refresh[CH_SEARCH]) && !get_ctrl_refresh_grant(CH_SEARCH);
+      lock_session_pending <=
+          (lock_session_pending || ctrl_refresh[CH_LOCK]) && !get_ctrl_refresh_grant(CH_LOCK);
+
       if (select_channel() != CH_NULL) begin
         ch_prev <= select_channel();
       end
@@ -117,7 +132,7 @@ interface tuner_ctrl_arb_if #(
 
   // FIXME
   function automatic logic get_ctrl_refresh();
-    return ctrl_refresh[ch_curr];
+    return get_ctrl_refresh_grant(ch_curr);
   endfunction
 
   function automatic logic get_pwr_detect_active();
