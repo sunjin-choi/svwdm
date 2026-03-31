@@ -1,12 +1,11 @@
 #include "Vsim.h"
+#include "testbench/verilator_tb.hpp"
 #include "utils/sweep.hpp"
-#include "verilated.h"
-#include "verilated_vcd_c.h"
 #include <array>
+#include <cassert>
 #include <csv2/writer.hpp>
 #include <fstream>
 #include <iostream>
-#include <memory>
 
 class SearchLockPhyMonitor {
 public:
@@ -136,29 +135,15 @@ private:
 };
 
 int main(int argc, char **argv) {
-  auto contextp = std::make_unique<VerilatedContext>();
-  Verilated::traceEverOn(true);
-  contextp->commandArgs(argc, argv);
-  auto tfp = std::make_unique<VerilatedVcdC>();
-  tfp->set_time_unit("ps");
-  tfp->set_time_resolution("ps");
-  const auto dut = std::make_unique<Vsim>(contextp.get());
-  dut->trace(tfp.get(), 99);
-  tfp->open("waveform.vcd");
-
-  vluint64_t main_time = 0;
-  const vluint64_t clk_period = 10;
-
   constexpr size_t kNumRings = 2;
-  std::array<SearchLockPhyMonitor, kNumRings> monitor{
-      SearchLockPhyMonitor(dut.get(), 0, 8),
-      SearchLockPhyMonitor(dut.get(), 1, 8)};
+  const std::array<int, kNumRings> kLockTuneStride = {0, 0};
+  const std::array<int, kNumRings> kLockPwrDeltaThres = {2, 2};
+  const std::array<int, kNumRings> kSyncCycle = {4, 4};
+  VerilatorTb<Vsim> tb(argc, argv);
+  auto *dut = tb.dut();
 
-  auto advance_half_clk = [&]() {
-    main_time += clk_period / 2;
-    dut->i_clk = !dut->i_clk;
-    dut->eval();
-  };
+  std::array<SearchLockPhyMonitor, kNumRings> monitor{
+      SearchLockPhyMonitor(dut, 0, 8), SearchLockPhyMonitor(dut, 1, 8)};
 
   /*auto advance_clk = [&](size_t ring) {
    *  auto search_state_prev = dut->o_search_state[ring];
@@ -172,11 +157,9 @@ int main(int argc, char **argv) {
    *};*/
 
   auto advance_clk = [&]() {
-    advance_half_clk();
-    advance_half_clk();
-    tfp->dump(main_time);
+    tb.step_clk(dut->i_clk);
     for (size_t ring = 0; ring < kNumRings; ++ring) {
-      monitor[ring].sample(main_time, false, false);
+      monitor[ring].sample(tb.time_ps(), false, false);
     }
   };
 
@@ -297,14 +280,13 @@ int main(int argc, char **argv) {
     dut->i_lock_intr_rdy[r] = 1;
     dut->i_lock_resume_val[r] = 0;
     dut->i_cfg_ring_pwr_peak_ratio[r] = 8;
+    dut->i_cfg_lock_tune_stride[r] = kLockTuneStride[r];
+    dut->i_cfg_lock_pwr_delta_thres[r] = kLockPwrDeltaThres[r];
+    dut->i_cfg_sync_cycle[r] = kSyncCycle[r];
   }
 
   dut->i_clk = 0;
-  dut->i_rst = 1;
-  advance_clk();
-  advance_clk();
-  dut->i_rst = 0;
-  advance_clk();
+  tb.reset(dut->i_clk, dut->i_rst);
 
   for (size_t ring = 0; ring < kNumRings; ++ring) {
     std::cout << "--- Ring " << ring << " ---" << std::endl;
@@ -323,6 +305,5 @@ int main(int argc, char **argv) {
                          ".csv");
   }
 
-  tfp->close();
   return 0;
 }

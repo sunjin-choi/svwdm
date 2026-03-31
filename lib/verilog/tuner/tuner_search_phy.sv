@@ -81,7 +81,6 @@ module tuner_search_phy #(
   /*typedef tuner_pwr_detect_if.pwr_detect_state_e search_active_state_e;*/
   /*typedef tuner_phy_detect_if_state_e search_active_state_e;*/
 
-
   // First half [0:SEARCH_PEAK_WINDOW_HALFSIZE-1]
   // Second half [SEARCH_PEAK_WINDOW_HALFSIZE:2*SEARCH_PEAK_WINDOW_HALFSIZE-1]
   // Detect target at SEARCH_PEAK_WINDOW_HALFSIZE-1
@@ -107,18 +106,17 @@ module tuner_search_phy #(
 
   /*logic pwr_read_fire;*/
   /*logic pwr_detect_fire;*/
+  logic is_ctrl_active_state;
   logic txn_valid;
 
   int search_active_cnt;
   int search_active_cnt_max;
   logic search_active_update;
   logic search_active_done;
-  logic is_ctrl_active_state;
 
   logic [DAC_WIDTH-1:0] ring_tune_step;
   logic [DAC_WIDTH-1:0] ring_tune;
   /*logic [DAC_WIDTH-1:0] ring_tune_prev;*/
-
   /*logic [ADC_WIDTH-1:0] ring_pwr_detected;
    *logic [ADC_WIDTH-1:0] ring_pwr_detected_prev;*/
   logic [DAC_WIDTH-1:0] ring_tune_track_win[SearchPeakWindowSize];
@@ -294,6 +292,7 @@ module tuner_search_phy #(
       txn_valid <= ~search_active_done;
     end
   end
+
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -317,6 +316,8 @@ module tuner_search_phy #(
       ring_tune_track <= ring_tune;
     end
   end
+
+  // Majority-Vote
   /*assign pwr_decremented = (i_dig_pwr_detected < pwr_detected_track_window[0]);*/
   assign pwr_incremented = pwr_det_track_win[0] > pwr_det_track_win[1];
   assign pwr_decremented = pwr_det_track_win[0] < pwr_det_track_win[1];
@@ -474,4 +475,3 @@ module tuner_search_phy #(
 endmodule
 
 `default_nettype wire
-

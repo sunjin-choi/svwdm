@@ -32,9 +32,7 @@
 module tuner_lock_phy #(
     parameter int DAC_WIDTH = 8,
     parameter int ADC_WIDTH = 8,
-    parameter int LOCK_DELTA_WINDOW_SIZE = 4,
-    parameter int LOCK_PWR_DELTA_THRES = 2,
-    parameter int LOCK_TUNE_STRIDE = 1
+    parameter int LOCK_DELTA_WINDOW_SIZE = 4
     /*parameter logic [DAC_WIDTH-1:0] DZ_SIZE = 4*/
 ) (
     input var logic i_clk,
@@ -43,6 +41,8 @@ module tuner_lock_phy #(
     // lock config
     //    // expected to set start by offsetting the peak target to red-side
     input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_start,
+    input var logic [$clog2(DAC_WIDTH)-1:0] i_cfg_lock_tune_stride,
+    input var logic [$clog2(LOCK_DELTA_WINDOW_SIZE + 1)-1:0] i_cfg_lock_pwr_delta_thres,
     //    // end is not used if local search is not enabled
     //    input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_end,
     //    /*input var logic [ADC_WIDTH-1:0] i_cfg_ring_pwr_peak,*/
@@ -88,6 +88,9 @@ module tuner_lock_phy #(
   // Signals
   // ----------------------------------------------------------------------
   tuner_phy_lock_state_e state, state_next;
+  localparam int LockDeltaThresWidth = $clog2(LOCK_DELTA_WINDOW_SIZE + 1);
+  localparam logic [LockDeltaThresWidth-1:0] LockDeltaWindowSizeValue =
+      LockDeltaThresWidth'(LOCK_DELTA_WINDOW_SIZE);
   lock_active_state_e lock_active_state, lock_active_state_next;
 
   lock_track_state_e lock_track_state, lock_track_state_next;
@@ -131,6 +134,7 @@ module tuner_lock_phy #(
 
   logic pwr_incremented_vote;
   logic pwr_decremented_vote;
+  logic [LockDeltaThresWidth-1:0] lock_pwr_delta_thres_eff;
 
   logic is_ctrl_active_state, is_update_state, is_tune_state;
   logic tune_fire, commit_fire;
@@ -141,7 +145,19 @@ module tuner_lock_phy #(
   // Assigns
   // ----------------------------------------------------------------------
   /*assign pwr_tgt = i_dig_pwr_peak * i_cfg_ring_pwr_peak_ratio / 16;*/
-  assign ring_tune_step   = (1 << LOCK_TUNE_STRIDE);
+  assign ring_tune_step   = (1 << i_cfg_lock_tune_stride);
+
+  always_comb begin
+    if (i_cfg_lock_pwr_delta_thres == '0) begin
+      lock_pwr_delta_thres_eff = 'd1;
+    end
+    else if (i_cfg_lock_pwr_delta_thres > LockDeltaWindowSizeValue) begin
+      lock_pwr_delta_thres_eff = LockDeltaWindowSizeValue;
+    end
+    else begin
+      lock_pwr_delta_thres_eff = i_cfg_lock_pwr_delta_thres;
+    end
+  end
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -422,8 +438,8 @@ module tuner_lock_phy #(
   // Detect the slope and decide the ring_tune_base_next
   // Determine combinationally, so that it does not incur extra latency and
   // thus can be determined immediately after TRACK_DETECT state is entered
-  assign pwr_incremented_vote = majority_vote(pwr_inc_track_win, LOCK_PWR_DELTA_THRES);
-  assign pwr_decremented_vote = majority_vote(pwr_dec_track_win, LOCK_PWR_DELTA_THRES);
+  assign pwr_incremented_vote = majority_vote(pwr_inc_track_win, lock_pwr_delta_thres_eff);
+  assign pwr_decremented_vote = majority_vote(pwr_dec_track_win, lock_pwr_delta_thres_eff);
 
   // If power incremented, can move further to RED, if decremented, then move to BLUE
   // If both are false, it is stable, so stay at the current ring_tune_base
@@ -448,7 +464,7 @@ module tuner_lock_phy #(
   // ----------------------------------------------------------------------
 
   function automatic logic majority_vote(input logic [LOCK_DELTA_WINDOW_SIZE-1:0] votes,
-                                         input int threshold);
+                                         input logic [LockDeltaThresWidth-1:0] threshold);
     return $countones(votes) >= threshold;
   endfunction
 

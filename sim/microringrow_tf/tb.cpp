@@ -1,40 +1,17 @@
 #include "Vsim.h"
+#include "testbench/verilator_tb.hpp"
 #include "utils/sweep.hpp"
-#include "verilated.h"
-#include "verilated_vcd_c.h"
+#include <array>
 #include <csv2/writer.hpp>
 #include <fstream>
 #include <iostream>
-#include <memory>
 
 int main(int argc, char **argv) {
-
-  // Construct a VerilatedContext to hold simulation time, etc
-  /*VerilatedContext *const contextp = new VerilatedContext;*/
-  auto contextp = std::make_unique<VerilatedContext>();
-
-  Verilated::traceEverOn(true);
-
-  // Pass arguments so Verilated code can see them, e.g. $value$plusargs
-  // This needs to be called before you create any model
-  contextp->commandArgs(argc, argv);
-
-  /*VerilatedVcdC *tfp = new VerilatedVcdC;*/
-  auto tfp = std::make_unique<VerilatedVcdC>();
-  // Default does not work out -- manually set time unit and resolution
-  tfp->set_time_unit("ps");
-  tfp->set_time_resolution("ps");
-
-  // Construct the Verilated model, from Vsim.h generated from Verilating
-  /*Vsim *const dut = new Vsim{contextp};*/
-  const auto dut = std::make_unique<Vsim>(contextp.get());
-
-  dut->trace(tfp.get(), 99);
-  tfp->open("waveform.vcd");
+  VerilatorTb<Vsim> tb(argc, argv);
+  auto *dut = tb.dut();
 
   // Time variable
   vluint64_t main_time = 0;
-  const vluint64_t sim_time = 10;
 
   // Sweep parameters
   const double wvl_start = 1295.0;
@@ -63,8 +40,7 @@ int main(int argc, char **argv) {
     dut->i_pwr = pt.i_pwr;
     dut->i_wvl_ls = pt.i_wvl;
 
-    dut->eval();
-    tfp->dump(main_time);
+    tb.advance_time(1);
 
     wvl_tf_t measure_thru = pt;
     wvl_tf_t measure_drop[8];
@@ -93,11 +69,6 @@ int main(int argc, char **argv) {
   writer.write_row(csv_row_t{"i_pwr", "i_wvl", "o_pwr_thru"});
   writer.write_rows(sweep_result_thru);
   stream.close();
-
-  /*std::cout << "PD output: " << dut->o_pd << " (A)" << std::endl;*/
-
-  // Clean up
-  tfp->close();
 
   return 0;
 }

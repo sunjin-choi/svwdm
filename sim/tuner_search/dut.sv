@@ -14,56 +14,61 @@
 `default_nettype none
 // verilog_format: on
 
-`define DAC_WIDTH 8
-`define ADC_WIDTH 8
-`define NUM_TARGET 4
-`define NUM_WAVES 2
-
 import wdm_pkg::*;
 import tuner_phy_pkg::*;
 
-module dut (
+module dut #(
+    parameter int DAC_WIDTH   = 8,
+    parameter int ADC_WIDTH   = 8,
+    parameter int NUM_TARGET  = 4,
+    parameter int NUM_WAVES   = 2,
+    parameter int MAX_SYNC_CYCLE = 16
+  ) (
     input var logic i_clk,
     input var logic i_rst,
 
     // input signals
     input var real i_pwr,
-    input var real i_wvl_ls  [`NUM_WAVES],
+    input var real i_wvl_ls  [NUM_WAVES],
     input var real i_wvl_ring,
 
     // output signals
     output real o_pwr_thru,
     output real o_pwr_drop,
 
-    /*input var logic [`DAC_WIDTH-1:0] i_dac_tune,*/
-    output logic [`ADC_WIDTH-1:0] o_adc_thru,
-    output logic [`ADC_WIDTH-1:0] o_adc_drop,
-    output logic [`DAC_WIDTH-1:0] o_dac_tune,
+    /*input var logic [DAC_WIDTH-1:0] i_dac_tune,*/
+    output logic [ADC_WIDTH-1:0] o_adc_thru,
+    output logic [ADC_WIDTH-1:0] o_adc_drop,
+    output logic [DAC_WIDTH-1:0] o_dac_tune,
 
     output logic o_dig_pwr_drop_detect_val,
-    output logic [`ADC_WIDTH-1:0] o_dig_pwr_drop_detected,
+    output logic [ADC_WIDTH-1:0] o_dig_pwr_drop_detected,
 
     input logic i_dig_search_trig_val,
     input logic i_dig_search_peaks_rdy,
     output logic o_dig_search_peaks_val,
-    input logic [`DAC_WIDTH-1:0] i_dig_ring_tune_start,
-    input logic [`DAC_WIDTH-1:0] i_dig_ring_tune_end,
-    input logic [`DAC_WIDTH-1:0] i_dig_ring_tune_stride,
+    input logic [$clog2(MAX_SYNC_CYCLE + 1)-1:0] i_cfg_sync_cycle,
+    input logic [DAC_WIDTH-1:0] i_dig_ring_tune_start,
+    input logic [DAC_WIDTH-1:0] i_dig_ring_tune_end,
+    input logic [DAC_WIDTH-1:0] i_dig_ring_tune_stride,
 
     // peak detect signal and collected tuner codes for codes
-    output logic [`DAC_WIDTH-1:0] o_dig_ring_tune_peaks[`NUM_TARGET],
-    output logic [`ADC_WIDTH-1:0] o_dig_pwr_detected_peaks[`NUM_TARGET],
-    output logic [$clog2(`NUM_TARGET)-1:0] o_dig_ring_tune_peaks_cnt,
+    output logic [DAC_WIDTH-1:0] o_dig_ring_tune_peaks[NUM_TARGET],
+    output logic [ADC_WIDTH-1:0] o_dig_pwr_detected_peaks[NUM_TARGET],
+    output logic [$clog2(NUM_TARGET)-1:0] o_dig_ring_tune_peaks_cnt,
 
     output logic o_mon_peak_commit,
     output logic o_mon_search_active_update,
-    output logic [`ADC_WIDTH-1:0] o_mon_ring_pwr,
-    output logic [`DAC_WIDTH-1:0] o_mon_ring_tune,
+    output logic [ADC_WIDTH-1:0] o_mon_ring_pwr,
+    output logic [DAC_WIDTH-1:0] o_mon_ring_tune,
     output tuner_phy_search_state_e o_mon_state
 
 );
 
-  `DECLARE_WAVES_TYPE(2);
+  typedef struct {
+    wave_t wave_bundle[NUM_WAVES-1:0];
+  } WAVES_TYPE;
+  localparam int WAVES_WIDTH = NUM_WAVES;
 
   // ----------------------------------------------------------------------
   // Assigns
@@ -75,9 +80,9 @@ module dut (
   real pwrs[WAVES_WIDTH];
 
   real ana_tune;
-  logic [`DAC_WIDTH-1:0] dac_tune;
-  logic [`DAC_WIDTH-1:0] search_ring_tune;
-  /*logic [`ADC_WIDTH-1:0] pwr_drop_detected;*/
+  logic [DAC_WIDTH-1:0] dac_tune;
+  logic [DAC_WIDTH-1:0] search_ring_tune;
+  /*logic [ADC_WIDTH-1:0] pwr_drop_detected;*/
 
   /*logic pwr_read_rdy;
    *logic pwr_read_val;
@@ -96,7 +101,7 @@ module dut (
   /*assign o_dig_pwr_drop_detect_val = pwr_detect_val;*/
 
   tuner_pwr_detect_if #(
-      .ADC_WIDTH(`ADC_WIDTH)
+      .ADC_WIDTH(ADC_WIDTH)
   ) pwr_detect_if (
       .i_clk(i_clk),
       .i_rst(i_rst)
@@ -109,9 +114,9 @@ module dut (
   assign o_dig_pwr_drop_detect_val = pwr_detect_if.detect_val;
 
   tuner_search_if #(
-      .ADC_WIDTH (`ADC_WIDTH),
-      .DAC_WIDTH (`DAC_WIDTH),
-      .NUM_TARGET(`NUM_TARGET)
+      .ADC_WIDTH (ADC_WIDTH),
+      .DAC_WIDTH (DAC_WIDTH),
+      .NUM_TARGET(NUM_TARGET)
   ) search_if (
       .i_clk(i_clk),
       .i_rst(i_rst)
@@ -131,15 +136,15 @@ module dut (
   assign o_mon_state = search_if.mon_state;
 
   tuner_ctrl_arb_if #(
-      .ADC_WIDTH(`ADC_WIDTH),
-      .DAC_WIDTH(`DAC_WIDTH)
+      .ADC_WIDTH(ADC_WIDTH),
+      .DAC_WIDTH(DAC_WIDTH)
   ) ctrl_arb_if (
       .*
   );
 
   tuner_txn_if #(
-      .DAC_WIDTH(`DAC_WIDTH),
-      .ADC_WIDTH(`ADC_WIDTH)
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH)
   ) search_txn_if (
       .i_clk(i_clk),
       .i_rst(i_rst)
@@ -173,7 +178,7 @@ module dut (
   );
 
   dac #(
-      .DAC_WIDTH(`DAC_WIDTH),
+      .DAC_WIDTH(DAC_WIDTH),
       .FullScaleRange(1.0)
   ) dac_tune_afe (
       .i_dig(dac_tune),
@@ -195,7 +200,7 @@ module dut (
   );
 
   adc #(
-      .ADC_WIDTH(`ADC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
       .FullScaleRange(1.0)
   ) adc_thru (
       .i_ana(o_pwr_thru),
@@ -203,7 +208,7 @@ module dut (
   );
 
   adc #(
-      .ADC_WIDTH(`ADC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
       .FullScaleRange(1.0)
   ) adc_drop (
       .i_ana(o_pwr_drop),
@@ -217,9 +222,12 @@ module dut (
       .pwr_detect_if(pwr_detect_if)
   );
 
-  tuner_ctrl_arb_phy ctrl_arb (
+  tuner_ctrl_arb_phy #(
+      .MAX_SYNC_CYCLE(MAX_SYNC_CYCLE)
+  ) ctrl_arb (
       .i_clk(i_clk),
       .i_rst(i_rst),
+      .i_cfg_sync_cycle(i_cfg_sync_cycle),
       .pwr_detect_if(pwr_detect_if),
       .ctrl_arb_if(ctrl_arb_if),
       .o_dig_afe_ring_tune(dac_tune),
@@ -228,8 +236,8 @@ module dut (
   );
 
   tuner_ctrl_txn_adapter #(
-      .DAC_WIDTH(`DAC_WIDTH),
-      .ADC_WIDTH(`ADC_WIDTH),
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
       .CHANNEL(CH_SEARCH)
   ) search_txn_adapter (
       .i_clk(i_clk),
@@ -239,9 +247,9 @@ module dut (
   );
 
   tuner_search_phy #(
-      .DAC_WIDTH (`DAC_WIDTH),
-      .ADC_WIDTH (`ADC_WIDTH),
-      .NUM_TARGET(`NUM_TARGET)
+      .DAC_WIDTH (DAC_WIDTH),
+      .ADC_WIDTH (ADC_WIDTH),
+      .NUM_TARGET(NUM_TARGET)
   ) drop_search (
       .i_clk(i_clk),
       .i_rst(i_rst),

@@ -30,6 +30,11 @@ function(define_verilator_environment)
   set(WAVEFORM_FILE
       $ENV{WAVEFORM_FILE}
       CACHE PATH "Path to the waveform file")
+  if(NOT WAVEFORM_FILE)
+    set(WAVEFORM_FILE
+        waveform.vcd
+        CACHE PATH "Path to the waveform file" FORCE)
+  endif()
 
   list(APPEND VERI_ARGS -Wall -Wno-fatal -sv --cc)
 
@@ -72,14 +77,49 @@ function(add_verilated_testbench name top_module cpp_main)
   target_include_directories(csv2 INTERFACE ${csv2_SOURCE_DIR}/include)
   target_compile_features(csv2 INTERFACE cxx_std_17)
 
+  set(MODEL_TARGET "${name}_model")
+  add_library(${MODEL_TARGET} STATIC)
+
   add_executable(${name} ${cpp_main} ${TESTBENCH_EXTRA_SRC})
 
   if(TESTBENCH_INCLUDE_DIRS)
     target_include_directories(${name} PRIVATE ${TESTBENCH_INCLUDE_DIRS})
   endif()
 
+  if(TESTBENCH_PREFIX)
+    set(_verilated_prefix "${TESTBENCH_PREFIX}")
+  else()
+    list(GET TESTBENCH_SOURCES 0 _verilated_top_src)
+    get_filename_component(_verilated_top_name "${_verilated_top_src}" NAME_WE)
+    string(MAKE_C_IDENTIFIER "V${_verilated_top_name}" _verilated_prefix)
+  endif()
+
+  set(_verilated_vdir
+      "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${MODEL_TARGET}.dir/${_verilated_prefix}.dir")
+  set(_verilated_manifest "${_verilated_vdir}/${_verilated_prefix}_copy.cmake")
+  set(_verilated_cmake "${_verilated_vdir}/${_verilated_prefix}.cmake")
+  set(_verilated_args "${_verilated_vdir}/verilator_args.txt")
+
+  # Regenerate the Verilator source manifest when HDL edits can change the
+  # generated file set, otherwise the model target can retain stale objects.
+  if(EXISTS "${_verilated_manifest}")
+    set(_verilated_regenerate OFF)
+    foreach(_verilated_src IN LISTS TESTBENCH_SOURCES)
+      if(EXISTS "${_verilated_src}"
+         AND "${_verilated_src}" IS_NEWER_THAN "${_verilated_manifest}")
+        set(_verilated_regenerate ON)
+        break()
+      endif()
+    endforeach()
+
+    if(_verilated_regenerate)
+      file(REMOVE "${_verilated_manifest}" "${_verilated_cmake}"
+                  "${_verilated_args}")
+    endif()
+  endif()
+
   verilate(
-    ${name}
+    ${MODEL_TARGET}
     SOURCES
     ${TESTBENCH_SOURCES}
     VERILATOR_ARGS
@@ -88,16 +128,18 @@ function(add_verilated_testbench name top_module cpp_main)
     ${top_module}
     PREFIX
     ${TESTBENCH_PREFIX}
-    TRACE)
+    TRACE_VCD
+    TRACE_STRUCTS)
 
-  target_link_libraries(${name} PRIVATE csv2)
+  target_link_libraries(${name} PRIVATE ${MODEL_TARGET} csv2)
 
   # Add run_<target> if it doesn't already exist
   set(RUN_TARGET "run-${name}")
   if(NOT TARGET ${RUN_TARGET})
     add_custom_target(
       ${RUN_TARGET}
-      COMMAND ${name}
+      COMMAND ${CMAKE_COMMAND} -E env WAVEFORM_FILE=${WAVEFORM_FILE}
+              $<TARGET_FILE:${name}>
       DEPENDS ${name}
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMENT "Running ${name}")

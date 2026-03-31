@@ -1,11 +1,9 @@
 #include "Vsim.h"
+#include "testbench/verilator_tb.hpp"
 #include "utils/sweep.hpp"
-#include "verilated.h"
-#include "verilated_vcd_c.h"
 #include <csv2/writer.hpp>
 #include <fstream>
 #include <iostream>
-#include <memory>
 
 class SearchPhyMonitor {
 public:
@@ -101,55 +99,21 @@ private:
 };
 
 int main(int argc, char **argv) {
-
-  // Construct a VerilatedContext to hold simulation time, etc
-  /*VerilatedContext *const contextp = new VerilatedContext;*/
-  auto contextp = std::make_unique<VerilatedContext>();
-
-  Verilated::traceEverOn(true);
-
-  // Pass arguments so Verilated code can see them, e.g. $value$plusargs
-  // This needs to be called before you create any model
-  contextp->commandArgs(argc, argv);
-
-  /*VerilatedVcdC *tfp = new VerilatedVcdC;*/
-  auto tfp = std::make_unique<VerilatedVcdC>();
-  // Default does not work out -- manually set time unit and resolution
-  tfp->set_time_unit("ps");
-  tfp->set_time_resolution("ps");
-
-  // Construct the Verilated model, from Vsim.h generated from Verilating
-  /*Vsim *const dut = new Vsim{contextp};*/
-  const auto dut = std::make_unique<Vsim>(contextp.get());
-
-  dut->trace(tfp.get(), 99);
-  tfp->open("waveform.vcd");
-
-  // Time variable
-  vluint64_t main_time = 0;
-  const vluint64_t clk_period = 10;
+  constexpr int kSyncCycle = 4;
+  VerilatorTb<Vsim> tb(argc, argv);
+  auto *dut = tb.dut();
 
   // Create a search monitor
-  SearchPhyMonitor search_monitor(dut.get(), 8);
-
-  auto advance_half_clk = [&]() {
-    main_time += clk_period / 2;
-    dut->i_clk = !dut->i_clk;
-    dut->eval();
-    /*tfp->dump(main_time);*/
-  };
+  SearchPhyMonitor search_monitor(dut, 8);
 
   auto advance_clk = [&]() {
     auto search_phy_state_prev = dut->o_mon_state;
-
-    advance_half_clk();
-    advance_half_clk();
-    tfp->dump(main_time);
+    tb.step_clk(dut->i_clk);
 
     auto search_phy_state = dut->o_mon_state;
     bool force_sample = (dut->o_mon_search_active_update ||
                          (search_phy_state != search_phy_state_prev));
-    search_monitor.sample(main_time, force_sample, true);
+    search_monitor.sample(tb.time_ps(), force_sample, true);
   };
 
   auto search_range_string = [&]() {
@@ -198,21 +162,15 @@ int main(int argc, char **argv) {
   dut->i_wvl_ring = 1295.0;
   dut->i_dig_search_trig_val = 0;
   dut->i_dig_search_peaks_rdy = 0;
+  dut->i_cfg_sync_cycle = kSyncCycle;
 
   dut->i_clk = 0; // Clock starts low
-  dut->i_rst = 1;
-  advance_clk();
-  advance_clk();
-  dut->i_rst = 0; // Release reset
-  advance_clk();  // Wait for a clock cycle after reset
+  tb.reset(dut->i_clk, dut->i_rst);
 
   search_routine(0, 255, 2, true);
   search_routine(140, 255, 0, true);
 
   search_monitor.write_csv("search_waveform.csv");
-
-  // Clean up
-  tfp->close();
 
   return 0;
 }

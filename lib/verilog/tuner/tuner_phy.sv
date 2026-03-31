@@ -28,8 +28,7 @@ module tuner_phy #(
     parameter int SEARCH_PEAK_THRES = 2,
     // Lock PHY Parameters
     parameter int LOCK_DELTA_WINDOW_SIZE = 2,
-    parameter int LOCK_PWR_DELTA_THRES = 2,
-    parameter int LOCK_TUNE_STRIDE = 0
+    parameter int MAX_SYNC_CYCLE = 16
 ) (
     // input signals
     input var logic i_clk,
@@ -40,6 +39,9 @@ module tuner_phy #(
     input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_start,
     input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_end,
     input var logic [$clog2(DAC_WIDTH)-1:0] i_cfg_ring_tune_stride,
+    input var logic [$clog2(DAC_WIDTH)-1:0] i_cfg_lock_tune_stride,
+    input var logic [$clog2(MAX_SYNC_CYCLE + 1)-1:0] i_cfg_sync_cycle,
+    input var logic [$clog2(LOCK_DELTA_WINDOW_SIZE + 1)-1:0] i_cfg_lock_pwr_delta_thres,
     input var logic [3:0] i_cfg_ring_pwr_peak_ratio,
     input var logic [ADC_WIDTH-1:0] i_cfg_pwr_peak,
     input var logic [DAC_WIDTH-1:0] i_cfg_ring_tune_peak,
@@ -82,6 +84,7 @@ module tuner_phy #(
       .i_clk(i_clk),
       .i_rst(i_rst)
   );
+
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -100,9 +103,12 @@ module tuner_phy #(
       .pwr_detect_if(pwr_detect_if.producer)
   );
 
-  tuner_ctrl_arb_phy ctrl_arb_phy_inst (
+  tuner_ctrl_arb_phy #(
+      .MAX_SYNC_CYCLE(MAX_SYNC_CYCLE)
+  ) ctrl_arb_phy_inst (
       .i_clk(i_clk),
       .i_rst(i_rst),
+      .i_cfg_sync_cycle(i_cfg_sync_cycle),
       .pwr_detect_if(pwr_detect_if.consumer),
       .ctrl_arb_if(ctrl_arb_if.consumer),
       .o_dig_afe_ring_tune(o_dig_ring_tune),
@@ -143,14 +149,14 @@ module tuner_phy #(
   tuner_lock_phy #(
       .DAC_WIDTH(DAC_WIDTH),
       .ADC_WIDTH(ADC_WIDTH),
-      .LOCK_DELTA_WINDOW_SIZE(LOCK_DELTA_WINDOW_SIZE),
-      .LOCK_PWR_DELTA_THRES(LOCK_PWR_DELTA_THRES),
-      .LOCK_TUNE_STRIDE(LOCK_TUNE_STRIDE)
+      .LOCK_DELTA_WINDOW_SIZE(LOCK_DELTA_WINDOW_SIZE)
   ) lock_phy_inst (
       .i_clk(i_clk),
       .i_rst(i_rst),
 
       .i_cfg_ring_tune_start(i_cfg_ring_tune_start),
+      .i_cfg_lock_tune_stride(i_cfg_lock_tune_stride),
+      .i_cfg_lock_pwr_delta_thres(i_cfg_lock_pwr_delta_thres),
       .i_cfg_ring_pwr_peak_ratio(i_cfg_ring_pwr_peak_ratio),
       .i_dig_pwr_peak(i_cfg_pwr_peak),
       .i_dig_ring_tune_peak(i_cfg_ring_tune_peak),
@@ -174,4 +180,3 @@ module tuner_phy #(
 endmodule
 
 `default_nettype wire
-

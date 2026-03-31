@@ -18,7 +18,7 @@ package tuner_phy_pkg;
   // ----------------------------------------------------------------------
   // Controller States
   // ----------------------------------------------------------------------
-  typedef enum logic [`TUNER_STATE_WIDTH-1:0] {
+  typedef enum logic [TUNER_STATE_WIDTH-1:0] {
     SEARCH_IDLE   = 8'h0,
     SEARCH_INIT   = 8'h1,
     SEARCH_ACTIVE = 8'h2,
@@ -27,7 +27,7 @@ package tuner_phy_pkg;
     SEARCH_INTR   = 8'h5
   } tuner_phy_search_state_e  /*verilator public*/;
 
-  typedef enum logic [`TUNER_STATE_WIDTH-1:0] {
+  typedef enum logic [TUNER_STATE_WIDTH-1:0] {
     LOCK_IDLE   = 8'h0,
     LOCK_INIT   = 8'h1,
     /*LOCK_SEARCH = 8'h2,*/
@@ -54,7 +54,7 @@ package tuner_phy_pkg;
   // ----------------------------------------------------------------------
   // Error States
   // ----------------------------------------------------------------------
-  typedef enum logic [`TUNER_STATE_WIDTH-1:0] {
+  typedef enum logic [TUNER_STATE_WIDTH-1:0] {
     ERROR_DETECT_MULTI,
     ERROR_TUNE_MULTI,
     ERROR_TIMEOUT,
