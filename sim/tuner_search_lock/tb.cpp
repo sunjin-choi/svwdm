@@ -119,6 +119,8 @@ private:
       return "ERROR";
     case 5:
       return "INTR";
+    case 6:
+      return "WAIT_GRANT";
     default:
       return "UNKNOWN";
     }
@@ -134,6 +136,8 @@ private:
       return "ACTIVE";
     case 3:
       return "INTR";
+    case 4:
+      return "WAIT_GRANT";
     default:
       return "UNKNOWN";
     }

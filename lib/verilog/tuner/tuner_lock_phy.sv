@@ -95,8 +95,8 @@ module tuner_lock_phy #(
   logic lock_restore;
 
   logic lock_refresh;
-  logic session_start_pending;
 
+  logic is_session_active_state;
   logic lock_active_update;
   logic lock_delta_update;
 
@@ -183,7 +183,8 @@ module tuner_lock_phy #(
   always_comb begin
     state_next = state;
     case (state)
-      LOCK_IDLE: if (lock_trig_fire) state_next = LOCK_INIT;
+      LOCK_IDLE: if (lock_trig_fire) state_next = LOCK_WAIT_GRANT;
+      LOCK_WAIT_GRANT: if (txn_if.session_grant) state_next = LOCK_INIT;
       LOCK_INIT: state_next = LOCK_ACTIVE;
       LOCK_ACTIVE: if (lock_intr_fire) state_next = LOCK_INTR;
       LOCK_INTR: if (lock_resume_fire) state_next = lock_restore ? LOCK_ACTIVE : LOCK_IDLE;
@@ -214,24 +215,13 @@ module tuner_lock_phy #(
   // ----------------------------------------------------------------------
   // LOCK_ACTIVE - Controller Arbiter I/F
   // ----------------------------------------------------------------------
+  assign is_session_active_state = (state == LOCK_INIT) || (state == LOCK_ACTIVE);
   assign is_ctrl_active_state = (state == LOCK_ACTIVE);
   assign lock_active_update = txn_if.fire();
   assign txn_if.val = is_ctrl_active_state;
-  assign txn_if.session_start = is_ctrl_active_state && session_start_pending;
-  assign txn_if.session_active = is_ctrl_active_state;
+  assign txn_if.session_req = (state == LOCK_WAIT_GRANT);
+  assign txn_if.session_active = is_session_active_state;
   assign txn_if.tune_code = ring_tune;
-
-  always_ff @(posedge i_clk or posedge i_rst) begin
-    if (i_rst) begin
-      session_start_pending <= 1'b0;
-    end
-    else if (lock_refresh) begin
-      session_start_pending <= 1'b1;
-    end
-    else if (txn_if.fire()) begin
-      session_start_pending <= 1'b0;
-    end
-  end
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------

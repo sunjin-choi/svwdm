@@ -16,11 +16,13 @@ constexpr int kSearchIdle = 0;
 constexpr int kSearchInit = 1;
 constexpr int kSearchActive = 2;
 constexpr int kSearchDone = 3;
+constexpr int kSearchWaitGrant = 6;
 
 constexpr int kLockIdle = 0;
 constexpr int kLockInit = 1;
 constexpr int kLockActive = 2;
 constexpr int kLockIntr = 3;
+constexpr int kLockWaitGrant = 4;
 
 constexpr int kLockTuneStride = 1;
 constexpr int kLockPwrDeltaThres = 2;
@@ -108,6 +110,8 @@ private:
       return "ACTIVE";
     case kSearchDone:
       return "DONE";
+    case kSearchWaitGrant:
+      return "WAIT_GRANT";
     default:
       return "UNKNOWN";
     }
@@ -123,6 +127,8 @@ private:
       return "ACTIVE";
     case kLockIntr:
       return "INTR";
+    case kLockWaitGrant:
+      return "WAIT_GRANT";
     default:
       return "UNKNOWN";
     }
@@ -258,14 +264,16 @@ int main(int argc, char **argv) {
                                              int observe_cycles,
                                              const std::string &label) {
       phase = label;
-      wait_until(label + " search active", 128,
-                 [&]() { return dut->o_search_state == kSearchActive; });
+      wait_until(label + " search queued", 128,
+                 [&]() { return dut->o_search_state == kSearchWaitGrant; });
       expect(dut->o_lock_state == kLockActive,
              label + ": lock must stay ACTIVE while search is queued");
 
       for (int cycle = 0; cycle < observe_cycles; ++cycle) {
         expect(dut->o_lock_state == kLockActive,
                label + ": lock released unexpectedly before interrupt");
+        expect(dut->o_search_state == kSearchWaitGrant,
+               label + ": queued search unexpectedly left WAIT_GRANT");
         expect(dut->o_ring_tune != expected_search_start,
                label + ": queued search preempted lock ownership");
         expect(dut->o_search_state != kSearchDone,

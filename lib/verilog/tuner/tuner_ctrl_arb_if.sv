@@ -34,7 +34,7 @@ interface tuner_ctrl_arb_if #(
   // Lock ctrl channel: CH_LOCK (1'b1)
   localparam int NumChannel = 4;
 
-  logic                 ctrl_refresh     [NumChannel];
+  logic                 ctrl_req         [NumChannel];
   logic                 ctrl_active      [NumChannel];
 
   // Control -> Arbiter: Ring tuning value (to be sent to AFE)
@@ -54,8 +54,6 @@ interface tuner_ctrl_arb_if #(
 
   // Internal signal
   tuner_ctrl_ch_e ch_curr, ch_prev;
-  logic           search_session_pending;
-  logic           lock_session_pending;
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -69,45 +67,30 @@ interface tuner_ctrl_arb_if #(
     return commit_rdy[ch] && commit_val;
   endfunction
 
-  function automatic logic has_session_request(tuner_ctrl_ch_e ch);
-    case (ch)
-      CH_SEARCH: return ctrl_refresh[CH_SEARCH] || search_session_pending;
-      CH_LOCK: return ctrl_refresh[CH_LOCK] || lock_session_pending;
-      default: return 1'b0;
-    endcase
-  endfunction
-
   function automatic logic hold_current_owner();
-    return ctrl_active[ch_prev] && !has_session_request(ch_prev);
+    return ctrl_active[ch_prev];
   endfunction
 
   // Ownership is session-scoped. Keep the current owner until its session
-  // ends, then acquire the next owner from a queued session-start request.
+  // ends, then acquire the next owner from a held session request.
   function automatic tuner_ctrl_ch_e select_channel();
     if (hold_current_owner()) return ch_prev;
-    else if (has_session_request(CH_SEARCH)) return CH_SEARCH;
-    else if (has_session_request(CH_LOCK)) return CH_LOCK;
+    else if (ctrl_req[CH_SEARCH]) return CH_SEARCH;
+    else if (ctrl_req[CH_LOCK]) return CH_LOCK;
     else
       return CH_NULL;
   endfunction
 
-  function automatic logic get_ctrl_refresh_grant(tuner_ctrl_ch_e ch);
-    return (select_channel() == ch) && has_session_request(ch) && !hold_current_owner();
+  function automatic logic get_ctrl_grant(tuner_ctrl_ch_e ch);
+    return (select_channel() == ch) && ctrl_req[ch] && !hold_current_owner();
   endfunction
 
   // Update current channel
   always_ff @(posedge i_clk or posedge i_rst) begin
     if (i_rst) begin
       ch_prev <= CH_SEARCH;  // Default to search channel on reset
-      search_session_pending <= 1'b0;
-      lock_session_pending   <= 1'b0;
     end
     else begin
-      search_session_pending <=
-          (search_session_pending || ctrl_refresh[CH_SEARCH]) && !get_ctrl_refresh_grant(CH_SEARCH);
-      lock_session_pending <=
-          (lock_session_pending || ctrl_refresh[CH_LOCK]) && !get_ctrl_refresh_grant(CH_LOCK);
-
       if (select_channel() != CH_NULL) begin
         ch_prev <= select_channel();
       end
@@ -132,7 +115,7 @@ interface tuner_ctrl_arb_if #(
 
   // FIXME
   function automatic logic get_ctrl_refresh();
-    return get_ctrl_refresh_grant(ch_curr);
+    return get_ctrl_grant(ch_curr);
   endfunction
 
   function automatic logic get_pwr_detect_active();
@@ -165,7 +148,7 @@ interface tuner_ctrl_arb_if #(
   // Producer (control logic) modport
   modport producer(
       output ctrl_active,
-      output ctrl_refresh,
+      output ctrl_req,
       output ring_tune,
       output tune_val,
       input tune_rdy,
@@ -173,6 +156,7 @@ interface tuner_ctrl_arb_if #(
       input pwr_commit,
       input commit_val,
       output commit_rdy,
+      import get_ctrl_grant,
       import get_ctrl_tune_ack,
       import get_ctrl_commit_ack,
       import get_pwr_detect_active
@@ -181,7 +165,7 @@ interface tuner_ctrl_arb_if #(
   // Consumer (arbiter logic) modport
   modport consumer(
       input ctrl_active,
-      input ctrl_refresh,
+      input ctrl_req,
       input ring_tune,
       input tune_val,
       output tune_rdy,
