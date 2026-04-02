@@ -3,6 +3,7 @@
 #include "utils/sweep.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <csv2/writer.hpp>
 #include <fstream>
 #include <iostream>
@@ -40,7 +41,13 @@ constexpr int kAdcWidth = STRESS_ADC_WIDTH;
 constexpr int kCodeScaleShift = (kDacWidth > 8) ? (kDacWidth - 8) : 0;
 constexpr int kCodeScale = 1 << kCodeScaleShift;
 constexpr int kMaxTuneCode = (1 << kDacWidth) - 1;
+constexpr int kMaxPwrCode = (1 << kAdcWidth) - 1;
 constexpr int kFullSearchStride = (kDacWidth > 6) ? (kDacWidth - 6) : 0;
+
+struct PeakResult {
+  int tune_code;
+  int power_code;
+};
 
 class SearchLockStressMonitor {
 public:
@@ -232,17 +239,26 @@ int main(int argc, char **argv) {
       dut->i_search_done_rdy = 1;
       advance_clk();
       const int first_peak = dut->o_pwr_peak_tune_codes[0];
+      const int first_peak_power = dut->o_pwr_peak_codes[0];
       expect(first_peak > 0, label + ": first peak code not populated");
+      expect(first_peak_power > 0, label + ": first peak power not populated");
       std::cout << label << ": first peak tune code = " << first_peak
+                << " power=" << first_peak_power
                 << " (reported peaks=" << static_cast<int>(dut->o_num_peaks)
                 << ")\n";
       dut->i_search_done_rdy = 0;
-      return first_peak;
+      return PeakResult{first_peak, first_peak_power};
     };
 
-    auto start_lock = [&](int start, const std::string &label) {
+    auto configure_lock_target = [&](const PeakResult &peak) {
+      dut->i_cfg_ring_tune_peak = clamp_code(peak.tune_code);
+      dut->i_cfg_pwr_peak = std::clamp(peak.power_code, 0, kMaxPwrCode);
+    };
+
+    auto start_lock = [&](const PeakResult &peak, const std::string &label) {
       phase = label;
-      dut->i_cfg_ring_tune_start = clamp_code(start);
+      configure_lock_target(peak);
+      dut->i_cfg_ring_tune_start = clamp_code(peak.tune_code);
       expect(dut->o_lock_trig_rdy, label + ": lock trigger not ready");
       dut->i_lock_trig_val = 1;
       advance_clk();
@@ -272,10 +288,10 @@ int main(int argc, char **argv) {
                  [&]() { return dut->o_lock_state == kLockIdle; });
     };
 
-    auto restart_lock = [&](int start, const std::string &resume_label,
+    auto restart_lock = [&](const PeakResult &peak, const std::string &resume_label,
                             const std::string &start_label) {
       resume_lock_to_idle(resume_label);
-      start_lock(start, start_label);
+      start_lock(peak, start_label);
     };
 
     auto verify_search_blocked_by_lock = [&](int expected_search_start,
@@ -300,6 +316,40 @@ int main(int argc, char **argv) {
       }
     };
 
+    auto verify_lock_tracks_peak = [&](const PeakResult &peak, int settle_cycles,
+                                       int observe_cycles,
+                                       const std::string &label) {
+      phase = label;
+      advance_cycles(settle_cycles);
+
+      const int max_peak_delta = std::max(4, scaled_code(8));
+      const int near_peak_delta = std::max(2, scaled_code(2));
+      const int min_adc_drop = std::max(1, peak.power_code * 3 / 4);
+      const int strong_adc_drop = std::max(1, peak.power_code * 7 / 8);
+      bool saw_near_peak_sample = false;
+
+      for (int cycle = 0; cycle < observe_cycles; ++cycle) {
+        expect(dut->o_lock_state == kLockActive,
+               label + ": lock must remain ACTIVE while tracking");
+        const int tune_delta =
+            std::abs(static_cast<int>(dut->o_ring_tune) - peak.tune_code);
+        expect(tune_delta <= max_peak_delta,
+               label + ": tune drifted too far from detected peak");
+        expect(static_cast<int>(dut->o_adc_drop) >= min_adc_drop,
+               label + ": detected drop power fell too far below the peak");
+
+        if ((tune_delta <= near_peak_delta) &&
+            (static_cast<int>(dut->o_adc_drop) >= strong_adc_drop)) {
+          saw_near_peak_sample = true;
+        }
+
+        advance_clk();
+      }
+
+      expect(saw_near_peak_sample,
+             label + ": lock never settled near the search maximum");
+    };
+
     dut->i_pwr = 1.0;
     dut->i_wvl_ls = 1300.0;
     dut->i_wvl_ring = 1295.0;
@@ -322,28 +372,28 @@ int main(int argc, char **argv) {
               << " full_search_stride=" << kFullSearchStride << "\n";
 
     start_search(0, kMaxTuneCode, kFullSearchStride, "search_full");
-    const int peak0 = finish_search("search_full");
+    const PeakResult peak0 = finish_search("search_full");
 
-    start_lock(peak0 - scaled_code(20), "lock_session_a");
-    advance_cycles(256);
+    start_lock(peak0, "lock_session_a");
+    verify_lock_tracks_peak(peak0, 64, 128, "lock_session_a_track");
 
     start_search(scaled_code(96), scaled_code(200), kFullSearchStride,
                  "queued_search_a");
     verify_search_blocked_by_lock(scaled_code(96), 128, "queued_search_a");
     interrupt_lock("lock_intr_a");
-    const int peak1 = finish_search("queued_search_a");
+    const PeakResult peak1 = finish_search("queued_search_a");
 
-    restart_lock(peak1 + scaled_code(16), "lock_resume_a", "lock_session_b");
-    advance_cycles(192);
+    restart_lock(peak1, "lock_resume_a", "lock_session_b");
+    verify_lock_tracks_peak(peak1, 64, 96, "lock_session_b_track");
 
     start_search(scaled_code(88), scaled_code(208), kFullSearchStride,
                  "queued_search_b");
     verify_search_blocked_by_lock(scaled_code(88), 128, "queued_search_b");
     interrupt_lock("lock_intr_b");
-    const int peak2 = finish_search("queued_search_b");
+    const PeakResult peak2 = finish_search("queued_search_b");
 
-    restart_lock(peak2 - scaled_code(12), "lock_resume_b", "lock_session_c");
-    advance_cycles(128);
+    restart_lock(peak2, "lock_resume_b", "lock_session_c");
+    verify_lock_tracks_peak(peak2, 48, 80, "lock_session_c_track");
     interrupt_lock("lock_intr_c");
     resume_lock_to_idle("lock_resume_c");
 
@@ -354,8 +404,8 @@ int main(int argc, char **argv) {
 
     monitor.write_csv("search_lock_stress_waveform.csv");
 
-    std::cout << "Stress sequence complete. Peaks: " << peak0 << ", " << peak1
-              << ", " << peak2 << "\n";
+    std::cout << "Stress sequence complete. Peaks: " << peak0.tune_code << ", "
+              << peak1.tune_code << ", " << peak2.tune_code << "\n";
     return 0;
   } catch (const std::exception &error) {
     std::cerr << "tuner_search_lock_stress failed: " << error.what() << "\n";
