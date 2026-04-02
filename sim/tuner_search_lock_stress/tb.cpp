@@ -12,6 +12,14 @@
 
 namespace {
 
+#ifndef STRESS_DAC_WIDTH
+#define STRESS_DAC_WIDTH 10
+#endif
+
+#ifndef STRESS_ADC_WIDTH
+#define STRESS_ADC_WIDTH STRESS_DAC_WIDTH
+#endif
+
 constexpr int kSearchIdle = 0;
 constexpr int kSearchInit = 1;
 constexpr int kSearchActive = 2;
@@ -27,6 +35,12 @@ constexpr int kLockWaitGrant = 4;
 constexpr int kLockTuneStride = 1;
 constexpr int kLockPwrDeltaThres = 2;
 constexpr int kSyncCycle = 4;
+constexpr int kDacWidth = STRESS_DAC_WIDTH;
+constexpr int kAdcWidth = STRESS_ADC_WIDTH;
+constexpr int kCodeScaleShift = (kDacWidth > 8) ? (kDacWidth - 8) : 0;
+constexpr int kCodeScale = 1 << kCodeScaleShift;
+constexpr int kMaxTuneCode = (1 << kDacWidth) - 1;
+constexpr int kFullSearchStride = (kDacWidth > 6) ? (kDacWidth - 6) : 0;
 
 class SearchLockStressMonitor {
 public:
@@ -193,7 +207,11 @@ int main(int argc, char **argv) {
     };
 
     auto clamp_code = [](int code) {
-      return std::clamp(code, 0, 255);
+      return std::clamp(code, 0, kMaxTuneCode);
+    };
+
+    auto scaled_code = [&](int code_8bit) {
+      return clamp_code(code_8bit * kCodeScale);
     };
 
     auto start_search = [&](int start, int end, int stride,
@@ -299,26 +317,32 @@ int main(int argc, char **argv) {
     tb.reset(dut->i_clk, dut->i_rst);
     sample_force();
 
-    start_search(0, 255, 2, "search_full");
+    std::cout << "Stress config: DAC_WIDTH=" << kDacWidth
+              << " ADC_WIDTH=" << kAdcWidth
+              << " full_search_stride=" << kFullSearchStride << "\n";
+
+    start_search(0, kMaxTuneCode, kFullSearchStride, "search_full");
     const int peak0 = finish_search("search_full");
 
-    start_lock(peak0 - 20, "lock_session_a");
+    start_lock(peak0 - scaled_code(20), "lock_session_a");
     advance_cycles(256);
 
-    start_search(96, 200, 2, "queued_search_a");
-    verify_search_blocked_by_lock(96, 128, "queued_search_a");
+    start_search(scaled_code(96), scaled_code(200), kFullSearchStride,
+                 "queued_search_a");
+    verify_search_blocked_by_lock(scaled_code(96), 128, "queued_search_a");
     interrupt_lock("lock_intr_a");
     const int peak1 = finish_search("queued_search_a");
 
-    restart_lock(peak1 + 16, "lock_resume_a", "lock_session_b");
+    restart_lock(peak1 + scaled_code(16), "lock_resume_a", "lock_session_b");
     advance_cycles(192);
 
-    start_search(88, 208, 2, "queued_search_b");
-    verify_search_blocked_by_lock(88, 128, "queued_search_b");
+    start_search(scaled_code(88), scaled_code(208), kFullSearchStride,
+                 "queued_search_b");
+    verify_search_blocked_by_lock(scaled_code(88), 128, "queued_search_b");
     interrupt_lock("lock_intr_b");
     const int peak2 = finish_search("queued_search_b");
 
-    restart_lock(peak2 - 12, "lock_resume_b", "lock_session_c");
+    restart_lock(peak2 - scaled_code(12), "lock_resume_b", "lock_session_c");
     advance_cycles(128);
     interrupt_lock("lock_intr_c");
     resume_lock_to_idle("lock_resume_c");

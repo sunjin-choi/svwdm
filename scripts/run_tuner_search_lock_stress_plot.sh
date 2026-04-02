@@ -6,6 +6,8 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
 build_dir="${BUILD_DIR:-${repo_root}/build}"
 plots_dir="${repo_root}/plots"
+stress_dac_width="${STRESS_DAC_WIDTH:-10}"
+stress_adc_width="${STRESS_ADC_WIDTH:-${stress_dac_width}}"
 
 if [ ! -d "$build_dir" ]; then
   echo "build directory not found: $build_dir" >&2
@@ -14,6 +16,9 @@ if [ ! -d "$build_dir" ]; then
   exit 1
 fi
 
+cmake -S "$repo_root" -B "$build_dir" \
+  -DTUNER_SEARCH_LOCK_STRESS_DAC_WIDTH="${stress_dac_width}" \
+  -DTUNER_SEARCH_LOCK_STRESS_ADC_WIDTH="${stress_adc_width}"
 cmake --build "$build_dir" --target run-tuner_search_lock_stress
 BUILD_DIR="$build_dir" "${script_dir}/plot_tuner_sims.sh"
 
