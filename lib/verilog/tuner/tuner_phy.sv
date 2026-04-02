@@ -104,7 +104,9 @@ module tuner_phy #(
   // ----------------------------------------------------------------------
   // Instantiations
   // ----------------------------------------------------------------------
-  tuner_pwr_detect_phy pwr_detect_phy_inst (
+  tuner_pwr_detect_phy #(
+      .ADC_WIDTH(ADC_WIDTH)
+  ) pwr_detect_phy_inst (
       .i_clk(i_clk),
       .i_rst(i_rst),
       .i_dig_ring_pwr(i_dig_ring_pwr),
@@ -112,6 +114,8 @@ module tuner_phy #(
   );
 
   tuner_ctrl_arb_phy #(
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
       .MAX_SYNC_CYCLE(MAX_SYNC_CYCLE)
   ) ctrl_arb_phy_inst (
       .i_clk(i_clk),

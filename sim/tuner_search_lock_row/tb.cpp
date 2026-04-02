@@ -140,7 +140,13 @@ private:
 
 int main(int argc, char **argv) {
   constexpr size_t kNumRings = 2;
-  const std::array<int, kNumRings> kLockTuneStride = {0, 0};
+  constexpr int kMaxTuneCode = 1023;
+  constexpr int kSearchStart = 0;
+  constexpr int kSearchEnd = kMaxTuneCode;
+  constexpr int kSearchStride = 4;  // log2 step, so full-search step = 16 codes.
+  constexpr int kProfileSpan = 96;
+  constexpr int kLockStartOffset = -80;
+  const std::array<int, kNumRings> kLockTuneStride = {1, 1};
   const std::array<int, kNumRings> kLockPwrDeltaThres = {2, 2};
   const std::array<int, kNumRings> kSyncCycle = {4, 4};
   VerilatorTb<Vsim> tb(argc, argv);
@@ -148,6 +154,9 @@ int main(int argc, char **argv) {
 
   std::array<SearchLockPhyMonitor, kNumRings> monitor{
       SearchLockPhyMonitor(dut, 0, 8), SearchLockPhyMonitor(dut, 1, 8)};
+  std::array<SearchLockPhyMonitor, kNumRings> profile_monitor{
+      SearchLockPhyMonitor(dut, 0, 1), SearchLockPhyMonitor(dut, 1, 1)};
+  std::array<int, kNumRings> selected_peak_codes = {0, 0};
 
   /*auto advance_clk = [&](size_t ring) {
    *  auto search_state_prev = dut->o_search_state[ring];
@@ -165,6 +174,15 @@ int main(int argc, char **argv) {
     for (size_t ring = 0; ring < kNumRings; ++ring) {
       monitor[ring].sample(tb.time_ps(), false, false);
     }
+  };
+
+  auto advance_clk_with_profile = [&](size_t profile_ring, bool force = false,
+                                      bool print = false) {
+    tb.step_clk(dut->i_clk);
+    for (size_t ring = 0; ring < kNumRings; ++ring) {
+      monitor[ring].sample(tb.time_ps(), false, false);
+    }
+    profile_monitor[profile_ring].sample(tb.time_ps(), force, print);
   };
 
   auto search_routine = [&](size_t ring, int start, int end, int stride = 1,
@@ -193,12 +211,19 @@ int main(int argc, char **argv) {
     dut->i_search_done_rdy[ring] = 1;
     advance_clk();
 
-    // save the first peak code
-    std::cout << "First peak tune code: "
-              << (int)dut->o_pwr_peak_tune_codes[ring][0] << std::endl;
+    const int peak_index =
+        ((int)ring < (int)dut->o_num_peaks[ring]) ? (int)ring : 0;
+    const int selected_peak_code =
+        (int)dut->o_pwr_peak_tune_codes[ring][peak_index];
+    const int selected_peak_pwr = (int)dut->o_pwr_peak_codes[ring][peak_index];
+
+    std::cout << "Selected peak[" << peak_index
+              << "] tune code: " << selected_peak_code
+              << " (power=" << selected_peak_pwr << ")" << std::endl;
     std::cout << "Number of peaks: " << (int)dut->o_num_peaks[ring]
               << std::endl;
-    monitor[ring].record_peak((int)dut->o_pwr_peak_tune_codes[ring][0]);
+    selected_peak_codes[ring] = selected_peak_code;
+    monitor[ring].record_peak(selected_peak_code);
 
     dut->i_search_done_rdy[ring] = 0;
 
@@ -215,12 +240,36 @@ int main(int argc, char **argv) {
     }
   };
 
-  auto offset = [&](size_t ring) -> int { return (ring % 2 == 0) ? -20 : 20; };
+  auto offset = [&](size_t ring) -> int {
+    static_cast<void>(ring);
+    return kLockStartOffset;
+  };
+
+  auto profile_routine = [&](size_t ring, int center, bool print = false) {
+    const int start = std::max(0, center - kProfileSpan);
+    const int end = std::min(kMaxTuneCode, center + kProfileSpan);
+
+    dut->i_cfg_ring_tune_start[ring] = start;
+    dut->i_cfg_ring_tune_end[ring] = end;
+    dut->i_cfg_ring_tune_stride[ring] = 1;
+    dut->i_search_trig_val[ring] = 1;
+    advance_clk_with_profile(ring, true, print);
+    dut->i_search_trig_val[ring] = 0;
+
+    while (!dut->o_search_done_val[ring]) {
+      advance_clk_with_profile(ring, false, print);
+    }
+
+    dut->i_search_done_rdy[ring] = 1;
+    advance_clk_with_profile(ring, true, print);
+    dut->i_search_done_rdy[ring] = 0;
+  };
 
   auto lock_routine = [&](size_t ring, bool print = true) {
     dut->i_lock_trig_val[ring] = 1;
 
-    dut->i_cfg_ring_tune_start[ring] = monitor[ring].get_peak(0) + offset(ring);
+    dut->i_cfg_ring_tune_start[ring] =
+        std::max(0, std::min(kMaxTuneCode, selected_peak_codes[ring] + offset(ring)));
     advance_clk();
     dut->i_lock_trig_val[ring] = 0;
 
@@ -271,7 +320,7 @@ int main(int argc, char **argv) {
   dut->i_wvl_ls[0] = 1300.0;
   dut->i_wvl_ls[1] = 1302.0;
 
-  const std::array<double, 2> wvl_ring = {1295.0, 1298.0};
+  const std::array<double, 2> wvl_ring = {1295.0, 1297.0};
   for (size_t i = 0; i < wvl_ring.size(); ++i) {
     dut->i_wvl_ring[i] = wvl_ring[i];
   }
@@ -293,7 +342,8 @@ int main(int argc, char **argv) {
 
   for (size_t ring = 0; ring < kNumRings; ++ring) {
     std::cout << "--- Ring " << ring << " ---" << std::endl;
-    search_routine(ring, 0, 255, 2, false);
+    search_routine(ring, kSearchStart, kSearchEnd, kSearchStride, false);
+    profile_routine(ring, selected_peak_codes[ring], false);
     /*search_routine(ring, 100, 200, 2, true);*/
   }
 
@@ -306,6 +356,8 @@ int main(int argc, char **argv) {
   for (size_t r = 0; r < kNumRings; ++r) {
     monitor[r].write_csv("search_lock_waveform_ring" + std::to_string(r) +
                          ".csv");
+    profile_monitor[r].write_csv("search_lock_profile_ring" + std::to_string(r) +
+                                 ".csv");
   }
 
   return 0;
