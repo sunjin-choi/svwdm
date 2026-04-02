@@ -4,6 +4,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
+build_dir="${BUILD_DIR:-${repo_root}/build}"
 plot_wave="${repo_root}/utils/plot_wave"
 plots_dir="${repo_root}/plots"
 
@@ -30,30 +31,35 @@ plot_if_exists() {
 }
 
 plot_if_exists \
-  "${repo_root}/build/sim/tuner_search_lock/search_lock_waveform.csv" \
+  "${build_dir}/sim/tuner_search_lock/search_lock_waveform.csv" \
   "${plots_dir}/tuner_search_lock.png" \
   --state_col lock_state
 
 plot_if_exists \
-  "${repo_root}/build/sim/tuner_search_lock_row/search_lock_waveform_ring0.csv" \
+  "${build_dir}/sim/tuner_search_lock_row/search_lock_waveform_ring0.csv" \
   "${plots_dir}/tuner_search_lock_row_ring0.png" \
   --state_col lock_state
 
 plot_if_exists \
-  "${repo_root}/build/sim/tuner_search_lock_row/search_lock_waveform_ring1.csv" \
+  "${build_dir}/sim/tuner_search_lock_row/search_lock_waveform_ring1.csv" \
   "${plots_dir}/tuner_search_lock_row_ring1.png" \
   --state_col lock_state
 
 plot_if_exists \
-  "${repo_root}/build/sim/tuner_search_row/search_waveform_ring0.csv" \
+  "${build_dir}/sim/tuner_search_lock_stress/search_lock_stress_waveform.csv" \
+  "${plots_dir}/tuner_search_lock_stress.png" \
+  --state_col lock_state
+
+plot_if_exists \
+  "${build_dir}/sim/tuner_search_row/search_waveform_ring0.csv" \
   "${plots_dir}/tuner_search_row_ring0.png"
 
 plot_if_exists \
-  "${repo_root}/build/sim/tuner_search_row/search_waveform_ring1.csv" \
+  "${build_dir}/sim/tuner_search_row/search_waveform_ring1.csv" \
   "${plots_dir}/tuner_search_row_ring1.png"
 
 plot_if_exists \
-  "${repo_root}/build/sim/tuner_search/search_waveform.csv" \
+  "${build_dir}/sim/tuner_search/search_waveform.csv" \
   "${plots_dir}/tuner_search.png" \
   --time_col time \
   --state_col state
