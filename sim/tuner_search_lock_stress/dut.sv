@@ -1,6 +1,6 @@
 //==============================================================================
 // Author: Sunjin Choi
-// Description: DUT for tuner_search_lock simulation
+// Description: DUT for tuner_search_lock_stress simulation
 //==============================================================================
 
 // verilog_format: off
@@ -9,8 +9,8 @@
 // verilog_format: on
 
 module dut #(
-    parameter int DAC_WIDTH    = 8,
-    parameter int ADC_WIDTH    = 8,
+    parameter int DAC_WIDTH    = 10,
+    parameter int ADC_WIDTH    = 10,
     parameter int NUM_TARGET   = 8,
     parameter int LOCK_DELTA_WINDOW_SIZE = 2,
     parameter int MAX_SYNC_CYCLE = 16
@@ -120,7 +120,7 @@ module dut #(
 
   microring #(
       .waves_t(WAVES_TYPE),
-      .FWHM(1.0),
+      .FWHM(2.0),
       .TuningFullScale(10.0)
   ) microring (
       .i_phot_waves(waves_in),

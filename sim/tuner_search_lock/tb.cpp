@@ -119,6 +119,8 @@ private:
       return "ERROR";
     case 5:
       return "INTR";
+    case 6:
+      return "WAIT_GRANT";
     default:
       return "UNKNOWN";
     }
@@ -134,6 +136,8 @@ private:
       return "ACTIVE";
     case 3:
       return "INTR";
+    case 4:
+      return "WAIT_GRANT";
     default:
       return "UNKNOWN";
     }
@@ -196,15 +200,14 @@ int main(int argc, char **argv) {
       advance_clk();
     }
 
-    // Trigger interrupt by dropping intr_rdy
-    dut->i_lock_intr_rdy = 0;
-    advance_clk();
-    dut->i_lock_intr_rdy = 1;
+    // Request a graceful stop and hold the request until lock acks it.
+    dut->i_lock_intr_val = 1;
 
     // wait until intr state entered
     while (dut->o_lock_state != 3) {
       advance_clk();
     }
+    dut->i_lock_intr_val = 0;
 
     // resume after few cycles
     for (int i = 0; i < 10; ++i) {
@@ -221,12 +224,12 @@ int main(int argc, char **argv) {
       advance_clk();
     }
 
-    // Halt Lock
-    dut->i_lock_resume_val = 1;
-    dut->i_cfg_ring_tune_start = 100;
-    dut->i_lock_trig_val = 0;
-    advance_clk();
-    dut->i_lock_resume_val = 0;
+    // Halt Lock before handing control back to search.
+    dut->i_lock_intr_val = 1;
+    while (dut->o_lock_state != 3) {
+      advance_clk();
+    }
+    dut->i_lock_intr_val = 0;
     advance_clk();
   };
 
@@ -236,7 +239,7 @@ int main(int argc, char **argv) {
   dut->i_search_trig_val = 0;
   dut->i_search_done_rdy = 0;
   dut->i_lock_trig_val = 0;
-  dut->i_lock_intr_rdy = 1;
+  dut->i_lock_intr_val = 0;
   dut->i_lock_resume_val = 0;
   dut->i_cfg_ring_pwr_peak_ratio = 8;
   dut->i_cfg_lock_tune_stride = kLockTuneStride;

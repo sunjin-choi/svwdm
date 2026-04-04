@@ -106,6 +106,7 @@ module tuner_search_phy #(
 
   /*logic pwr_read_fire;*/
   /*logic pwr_detect_fire;*/
+  logic is_session_active_state;
   logic is_ctrl_active_state;
   logic txn_valid;
 
@@ -174,7 +175,8 @@ module tuner_search_phy #(
   always_comb begin
     case (state)
       /*SEARCH_IDLE: state_next = search_trig_fire ? SEARCH_ACTIVE : state;*/
-      SEARCH_IDLE: state_next = search_trig_fire ? SEARCH_INIT : state;
+      SEARCH_IDLE: state_next = search_trig_fire ? SEARCH_WAIT_GRANT : state;
+      SEARCH_WAIT_GRANT: state_next = txn_if.session_grant ? SEARCH_INIT : state;
       // this state initializes the registers in a single cycle
       SEARCH_INIT: state_next = SEARCH_ACTIVE;
       // If search is done, go to SEARCH_DONE
@@ -182,7 +184,7 @@ module tuner_search_phy #(
       SEARCH_ACTIVE: state_next = search_active_done ? SEARCH_DONE : state;
       // Stay at SEARCH_DONE until search_trig_fire
       /*SEARCH_DONE: state_next = search_trig_fire ? SEARCH_ACTIVE : state;*/
-      SEARCH_DONE: state_next = search_trig_fire ? SEARCH_INIT : state;
+      SEARCH_DONE: state_next = search_trig_fire ? SEARCH_WAIT_GRANT : state;
       SEARCH_ERROR: state_next = state;
       default: state_next = state;
     endcase
@@ -240,9 +242,12 @@ module tuner_search_phy #(
   // ----------------------------------------------------------------------
   // SEARCH_ACTIVE - Transaction I/F
   // ----------------------------------------------------------------------
+  assign is_session_active_state = (state == SEARCH_INIT) || (state == SEARCH_ACTIVE);
   assign is_ctrl_active_state = (state == SEARCH_ACTIVE);
   assign search_active_update = txn_if.fire();
   assign txn_if.val = is_ctrl_active_state && txn_valid;
+  assign txn_if.session_req = (state == SEARCH_WAIT_GRANT);
+  assign txn_if.session_active = is_session_active_state;
   assign txn_if.tune_code = ring_tune;
 
   // ----------------------------------------------------------------------

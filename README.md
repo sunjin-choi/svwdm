@@ -35,13 +35,36 @@ The `lib/verilog/` directory contains the core SystemVerilog modules for the WDM
 Package compile order is defined in `cmake/VerilogPackages.cmake`.  Adjust this
 file if additional packages are added or the order needs to change.
 
-### Search Transaction Update
+### Tuner Architecture
 
-![Tuner search architecture update](docs/_static/tuner_search_txn_update.svg)
+The tuner is organized as a closed loop around the microring plant.
 
-This PR changes the search path so `tuner_search_phy` issues a single
-transaction through `tuner_txn_if` and `tuner_ctrl_txn_adapter`, while the
-shared `tuner_ctrl_arb_phy` and lock path stay in place.
+![Tuner architecture](docs/_static/tuner_architecture.svg)
+
+Physical path:
+
+- `laser` generates optical waves
+- `microring` transforms those waves into `drop` and `thru` outputs
+- `photodetector` converts optical power to electrical current
+- `adc` converts that current into digital measurement codes
+- `tuner_phy` computes the next digital tune code
+- `dac` converts the digital tune code back into an analog tuning signal
+- that analog tuning signal drives the `microring`
+
+Controller path:
+
+- `tuner_search_if` and `tuner_lock_if` carry lifecycle control such as
+  trigger, done, interrupt, resume, and monitor state
+- `tuner_search_phy` and `tuner_lock_phy` both issue one tune request plus one
+  measured response through `tuner_txn_if`
+- `tuner_ctrl_txn_adapter` bridges those controller transactions onto the
+  shared arbiter interface
+- `tuner_ctrl_arb_phy` performs the shared tune / sync / commit sequencing and
+  feeds the AFE and power-detect path
+
+The important ownership rule is that plant control is session-scoped, not
+handshake-scoped. Search or lock keeps ownership for the duration of its active
+session, and the live tune code remains held until the next real tune fire.
 
 ### Simulation (`sim/`)
 

@@ -52,8 +52,8 @@ module dut #(
     // Lock Interface
     input var  logic i_lock_trig_val  [NUM_CHANNEL],
     output var logic o_lock_trig_rdy  [NUM_CHANNEL],
-    input var  logic i_lock_intr_rdy  [NUM_CHANNEL],
-    output var logic o_lock_intr_val  [NUM_CHANNEL],
+    input var  logic i_lock_intr_val  [NUM_CHANNEL],
+    output var logic o_lock_intr_rdy  [NUM_CHANNEL],
     input var  logic i_lock_resume_val[NUM_CHANNEL],
     output var logic o_lock_resume_rdy[NUM_CHANNEL],
 
@@ -225,8 +225,8 @@ module dut #(
       // Lock Interface Logic
       assign lock_if[ch].trig_val      = i_lock_trig_val[ch];
       assign o_lock_trig_rdy[ch]       = lock_if[ch].trig_rdy;
-      assign o_lock_intr_val[ch]       = lock_if[ch].intr_val;
-      assign lock_if[ch].intr_rdy      = i_lock_intr_rdy[ch];
+      assign lock_if[ch].intr_val      = i_lock_intr_val[ch];
+      assign o_lock_intr_rdy[ch]       = lock_if[ch].intr_rdy;
       assign lock_if[ch].resume_val    = i_lock_resume_val[ch];
       assign o_lock_resume_rdy[ch]     = lock_if[ch].resume_rdy;
 

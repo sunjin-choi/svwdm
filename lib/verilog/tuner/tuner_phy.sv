@@ -85,6 +85,14 @@ module tuner_phy #(
       .i_rst(i_rst)
   );
 
+  tuner_txn_if #(
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH)
+  ) lock_txn_if (
+      .i_clk(i_clk),
+      .i_rst(i_rst)
+  );
+
   // ----------------------------------------------------------------------
 
   // ----------------------------------------------------------------------
@@ -96,7 +104,9 @@ module tuner_phy #(
   // ----------------------------------------------------------------------
   // Instantiations
   // ----------------------------------------------------------------------
-  tuner_pwr_detect_phy pwr_detect_phy_inst (
+  tuner_pwr_detect_phy #(
+      .ADC_WIDTH(ADC_WIDTH)
+  ) pwr_detect_phy_inst (
       .i_clk(i_clk),
       .i_rst(i_rst),
       .i_dig_ring_pwr(i_dig_ring_pwr),
@@ -104,6 +114,8 @@ module tuner_phy #(
   );
 
   tuner_ctrl_arb_phy #(
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
       .MAX_SYNC_CYCLE(MAX_SYNC_CYCLE)
   ) ctrl_arb_phy_inst (
       .i_clk(i_clk),
@@ -124,6 +136,17 @@ module tuner_phy #(
       .i_clk(i_clk),
       .i_rst(i_rst),
       .txn_if(search_txn_if.arb),
+      .ctrl_if(ctrl_arb_if.producer)
+  );
+
+  tuner_ctrl_txn_adapter #(
+      .DAC_WIDTH(DAC_WIDTH),
+      .ADC_WIDTH(ADC_WIDTH),
+      .CHANNEL(CH_LOCK)
+  ) lock_txn_adapter (
+      .i_clk(i_clk),
+      .i_rst(i_rst),
+      .txn_if(lock_txn_if.arb),
       .ctrl_if(ctrl_arb_if.producer)
   );
 
@@ -161,7 +184,7 @@ module tuner_phy #(
       .i_dig_pwr_peak(i_cfg_pwr_peak),
       .i_dig_ring_tune_peak(i_cfg_ring_tune_peak),
 
-      .ctrl_arb_if(ctrl_arb_if.producer),
+      .txn_if(lock_txn_if.ctrl),
       .lock_if(lock_if)
   );
   // ----------------------------------------------------------------------

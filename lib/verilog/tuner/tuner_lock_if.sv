@@ -72,8 +72,8 @@ interface tuner_lock_if #(
   modport producer(
       input trig_val,
       output trig_rdy,
-      output intr_val,
-      input intr_rdy,
+      input intr_val,
+      output intr_rdy,
       input resume_val,
       output resume_rdy,
 
@@ -92,8 +92,8 @@ interface tuner_lock_if #(
   modport consumer(
       input trig_rdy,
       output trig_val,
-      input intr_val,
-      output intr_rdy,
+      output intr_val,
+      input intr_rdy,
       output resume_val,
       input resume_rdy,
 
@@ -107,4 +107,3 @@ interface tuner_lock_if #(
   // ----------------------------------------------------------------------
 
 endinterface
-

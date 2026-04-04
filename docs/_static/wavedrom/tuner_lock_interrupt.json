@@ -1,0 +1,26 @@
+{
+  "config": {
+    "hscale": 2
+  },
+  "head": {
+    "text": "Lock Interrupt / Resume (Graceful Stop)"
+  },
+  "signal": [
+    { "name": "clk", "wave": "p..........." },
+    { "name": "lock_state", "wave": "x.3....4..5.", "data": ["ACTIVE", "INTR", "IDLE"] },
+    { "name": "session_active", "wave": "1......0...." },
+    { "name": "lock_active", "wave": "1......0...." },
+    { "name": "val", "wave": "1......0...." },
+    { "name": "rdy", "wave": "0.....10....", "node": "......c....." },
+    { "name": "fire()", "wave": "0.....10...." },
+    { "name": "intr_val", "wave": "0..1...0....", "node": "...a......." },
+    { "name": "intr_rdy", "wave": "0.....10....", "node": "......b....." },
+    { "name": "resume_rdy", "wave": "0.......1..." },
+    { "name": "resume_val", "wave": "0........10.", "node": ".........d.." }
+  ],
+  "edge": [
+    "a~>b intr waits",
+    "b->c intr ack @ rdy",
+    "d->c resume after INTR"
+  ]
+}

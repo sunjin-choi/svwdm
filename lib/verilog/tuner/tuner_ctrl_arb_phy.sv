@@ -197,6 +197,9 @@ module tuner_ctrl_arb_phy #(
     if (i_rst) begin
       sync_cnt <= '0;
     end
+    else if (ctrl_refresh) begin
+      sync_cnt <= '0;
+    end
     else begin
       case (state)
         ARB_CTRL_INIT: sync_cnt <= '0;
@@ -242,9 +245,6 @@ module tuner_ctrl_arb_phy #(
     if (i_rst) begin
       ring_tune_track <= '0;
     end
-    else if (ctrl_refresh) begin
-      ring_tune_track <= '0;
-    end
     else if (ring_tune_fire) begin
       ring_tune_track <= ring_tune;
     end
@@ -256,8 +256,12 @@ module tuner_ctrl_arb_phy #(
   /*assign o_afe_ring_tune_val = i_ctrl_ring_tune_val && (state == ARB_CTRL_TUNE);*/
   /*assign o_ctrl_ring_tune_rdy = i_afe_ring_tune_rdy && (state == ARB_CTRL_TUNE);*/
   /*assign o_afe_ring_tune_val = ctrl_arb_if.tune_val[CH_SEARCH] && (state == ARB_CTRL_TUNE); // FIXME*/
-  assign o_afe_ring_tune_val = ctrl_arb_if.any_ctrl_tune_val() && (state == ARB_CTRL_TUNE);
-  assign ctrl_arb_if.tune_rdy = i_afe_ring_tune_rdy && (state == ARB_CTRL_TUNE);
+  // A grant-scoped ctrl_refresh resets the shared session state. Do not let a
+  // queued controller consume a stale TUNE handshake on that same cycle.
+  assign o_afe_ring_tune_val = ctrl_arb_if.any_ctrl_tune_val() && (state == ARB_CTRL_TUNE) &&
+                               !ctrl_refresh;
+  assign ctrl_arb_if.tune_rdy = i_afe_ring_tune_rdy && (state == ARB_CTRL_TUNE) &&
+                                !ctrl_refresh;
 
   assign o_dig_afe_ring_tune = ring_tune;
   // ----------------------------------------------------------------------
@@ -309,7 +313,7 @@ module tuner_ctrl_arb_phy #(
 
   // Drive valid signal only in COMMIT state
   /*assign o_ctrl_commit_val       = (state == ARB_CTRL_COMMIT);*/
-  assign ctrl_arb_if.commit_val       = (state == ARB_CTRL_COMMIT);
+  assign ctrl_arb_if.commit_val       = (state == ARB_CTRL_COMMIT) && !ctrl_refresh;
   // ----------------------------------------------------------------------
 
 endmodule

@@ -113,6 +113,8 @@ private:
       return "ERROR";
     case 5:
       return "INTR";
+    case 6:
+      return "WAIT_GRANT";
     default:
       return "UNKNOWN";
     }
@@ -128,6 +130,8 @@ private:
       return "ACTIVE";
     case 3:
       return "INTR";
+    case 4:
+      return "WAIT_GRANT";
     default:
       return "UNKNOWN";
     }
@@ -136,7 +140,12 @@ private:
 
 int main(int argc, char **argv) {
   constexpr size_t kNumRings = 2;
-  const std::array<int, kNumRings> kLockTuneStride = {0, 0};
+  constexpr int kMaxTuneCode = 1023;
+  constexpr int kSearchStart = 0;
+  constexpr int kSearchEnd = kMaxTuneCode;
+  constexpr int kSearchStride = 4;  // log2 step, so full-search step = 16 codes.
+  constexpr int kLockStartOffset = -80;
+  const std::array<int, kNumRings> kLockTuneStride = {1, 1};
   const std::array<int, kNumRings> kLockPwrDeltaThres = {2, 2};
   const std::array<int, kNumRings> kSyncCycle = {4, 4};
   VerilatorTb<Vsim> tb(argc, argv);
@@ -144,6 +153,7 @@ int main(int argc, char **argv) {
 
   std::array<SearchLockPhyMonitor, kNumRings> monitor{
       SearchLockPhyMonitor(dut, 0, 8), SearchLockPhyMonitor(dut, 1, 8)};
+  std::array<int, kNumRings> selected_peak_codes = {0, 0};
 
   /*auto advance_clk = [&](size_t ring) {
    *  auto search_state_prev = dut->o_search_state[ring];
@@ -189,12 +199,19 @@ int main(int argc, char **argv) {
     dut->i_search_done_rdy[ring] = 1;
     advance_clk();
 
-    // save the first peak code
-    std::cout << "First peak tune code: "
-              << (int)dut->o_pwr_peak_tune_codes[ring][0] << std::endl;
+    const int peak_index =
+        ((int)ring < (int)dut->o_num_peaks[ring]) ? (int)ring : 0;
+    const int selected_peak_code =
+        (int)dut->o_pwr_peak_tune_codes[ring][peak_index];
+    const int selected_peak_pwr = (int)dut->o_pwr_peak_codes[ring][peak_index];
+
+    std::cout << "Selected peak[" << peak_index
+              << "] tune code: " << selected_peak_code
+              << " (power=" << selected_peak_pwr << ")" << std::endl;
     std::cout << "Number of peaks: " << (int)dut->o_num_peaks[ring]
               << std::endl;
-    monitor[ring].record_peak((int)dut->o_pwr_peak_tune_codes[ring][0]);
+    selected_peak_codes[ring] = selected_peak_code;
+    monitor[ring].record_peak(selected_peak_code);
 
     dut->i_search_done_rdy[ring] = 0;
 
@@ -211,12 +228,16 @@ int main(int argc, char **argv) {
     }
   };
 
-  auto offset = [&](size_t ring) -> int { return (ring % 2 == 0) ? -20 : 20; };
+  auto offset = [&](size_t ring) -> int {
+    static_cast<void>(ring);
+    return kLockStartOffset;
+  };
 
   auto lock_routine = [&](size_t ring, bool print = true) {
     dut->i_lock_trig_val[ring] = 1;
 
-    dut->i_cfg_ring_tune_start[ring] = monitor[ring].get_peak(0) + offset(ring);
+    dut->i_cfg_ring_tune_start[ring] =
+        std::max(0, std::min(kMaxTuneCode, selected_peak_codes[ring] + offset(ring)));
     advance_clk();
     dut->i_lock_trig_val[ring] = 0;
 
@@ -229,14 +250,13 @@ int main(int argc, char **argv) {
       advance_clk();
     }
 
-    dut->i_lock_intr_rdy[ring] = 0;
-    advance_clk();
-    dut->i_lock_intr_rdy[ring] = 1;
+    dut->i_lock_intr_val[ring] = 1;
 
     /*while (dut->o_lock_state[ring] != LOCK_INTR) {*/
     while (dut->o_lock_state[ring] != 3) {
       advance_clk();
     }
+    dut->i_lock_intr_val[ring] = 0;
 
     for (int i = 0; i < 10; ++i) {
       advance_clk();
@@ -268,7 +288,7 @@ int main(int argc, char **argv) {
   dut->i_wvl_ls[0] = 1300.0;
   dut->i_wvl_ls[1] = 1302.0;
 
-  const std::array<double, 2> wvl_ring = {1295.0, 1298.0};
+  const std::array<double, 2> wvl_ring = {1295.0, 1297.0};
   for (size_t i = 0; i < wvl_ring.size(); ++i) {
     dut->i_wvl_ring[i] = wvl_ring[i];
   }
@@ -277,7 +297,7 @@ int main(int argc, char **argv) {
     dut->i_search_trig_val[r] = 0;
     dut->i_search_done_rdy[r] = 0;
     dut->i_lock_trig_val[r] = 0;
-    dut->i_lock_intr_rdy[r] = 1;
+    dut->i_lock_intr_val[r] = 0;
     dut->i_lock_resume_val[r] = 0;
     dut->i_cfg_ring_pwr_peak_ratio[r] = 8;
     dut->i_cfg_lock_tune_stride[r] = kLockTuneStride[r];
@@ -290,7 +310,7 @@ int main(int argc, char **argv) {
 
   for (size_t ring = 0; ring < kNumRings; ++ring) {
     std::cout << "--- Ring " << ring << " ---" << std::endl;
-    search_routine(ring, 0, 255, 2, false);
+    search_routine(ring, kSearchStart, kSearchEnd, kSearchStride, false);
     /*search_routine(ring, 100, 200, 2, true);*/
   }
 

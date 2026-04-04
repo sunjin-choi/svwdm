@@ -24,7 +24,8 @@ package tuner_phy_pkg;
     SEARCH_ACTIVE = 8'h2,
     SEARCH_DONE   = 8'h3,
     SEARCH_ERROR  = 8'h4,
-    SEARCH_INTR   = 8'h5
+    SEARCH_INTR   = 8'h5,
+    SEARCH_WAIT_GRANT = 8'h6
   } tuner_phy_search_state_e  /*verilator public*/;
 
   typedef enum logic [TUNER_STATE_WIDTH-1:0] {
@@ -33,7 +34,8 @@ package tuner_phy_pkg;
     /*LOCK_SEARCH = 8'h2,*/
     /*LOCK_DONE   = 8'h3,*/
     LOCK_ACTIVE = 8'h2,
-    LOCK_INTR   = 8'h3
+    LOCK_INTR   = 8'h3,
+    LOCK_WAIT_GRANT = 8'h4
   } tuner_phy_lock_state_e  /*verilator public*/;
 
   typedef enum logic [2:0] {

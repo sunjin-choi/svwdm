@@ -21,11 +21,10 @@ module tuner_ctrl_txn_adapter #(
 
   typedef enum logic [1:0] {IDLE, WAIT_TUNE, WAIT_COMMIT, RESP} state_e;
   state_e state, state_next;
-  logic refresh_pulse;
 
   // State machine
   always_ff @(posedge i_clk or posedge i_rst) begin
-    if (i_rst) begin
+    if (i_rst || !txn_if.session_active) begin
       state <= IDLE;
     end else begin
       state <= state_next;
@@ -42,13 +41,10 @@ module tuner_ctrl_txn_adapter #(
     endcase
   end
 
-  // Pulse refresh in the launch cycle so the arbiter/power detector reset
-  // before the first WAIT_TUNE handshake, rather than one cycle later.
-  assign refresh_pulse = (state == IDLE) && txn_if.val;
-
   // Drive control arbiter interface
-  assign ctrl_if.ctrl_active[CHANNEL]  = (state != IDLE);
-  assign ctrl_if.ctrl_refresh[CHANNEL] = refresh_pulse;
+  assign ctrl_if.ctrl_req[CHANNEL]    = txn_if.session_req;
+  assign ctrl_if.ctrl_active[CHANNEL] = txn_if.session_active;
+  assign txn_if.session_grant         = ctrl_if.get_ctrl_grant(CHANNEL);
 
   assign ctrl_if.ring_tune[CHANNEL] = txn_if.tune_code;
   assign ctrl_if.tune_val[CHANNEL]  = (state == WAIT_TUNE) && txn_if.val;

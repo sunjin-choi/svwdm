@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820" role="img" aria-labelledby="title desc">
+  <title id="title">Tuner Architecture</title>
+  <desc id="desc">Diagram showing the microring plant loop and the session-scoped tuner controller stack with search and lock using transaction interfaces.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#355070"/>
+    </marker>
+    <marker id="arrowGray" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6c757d"/>
+    </marker>
+    <style>
+      .title { font: 700 28px sans-serif; fill: #1f2933; }
+      .subtitle { font: 600 18px sans-serif; fill: #1f2933; }
+      .label { font: 600 15px monospace; fill: #102a43; }
+      .ifaceLabel { font: 600 14px sans-serif; fill: #475569; }
+      .note { font: 500 14px sans-serif; fill: #334e68; }
+      .small { font: 500 13px sans-serif; fill: #486581; }
+      .panel { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; rx: 18; ry: 18; }
+      .plant { fill: #fef3c7; stroke: #d97706; stroke-width: 2; rx: 14; ry: 14; }
+      .logic { fill: #e0f2fe; stroke: #0284c7; stroke-width: 2; rx: 14; ry: 14; }
+      .shared { fill: #ecfdf5; stroke: #059669; stroke-width: 2; rx: 14; ry: 14; }
+      .arrowNew { stroke: #355070; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .arrowDash { stroke: #355070; stroke-width: 2.5; fill: none; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .arrowGray { stroke: #6c757d; stroke-width: 2.5; fill: none; marker-end: url(#arrowGray); }
+    </style>
+  </defs>
+
+  <rect x="20" y="20" width="1160" height="780" class="panel"/>
+  <text x="60" y="70" class="title">Tuner Architecture</text>
+  <text x="60" y="102" class="note">The microring is the plant. Search and lock own it by session, and each controller step is issued as one tune request plus one measured response.</text>
+
+  <text x="70" y="150" class="subtitle">Plant Loop</text>
+
+  <rect x="70" y="180" width="130" height="76" class="plant"/>
+  <text x="109" y="214" class="label">laser</text>
+  <text x="97" y="238" class="small">optical source</text>
+
+  <rect x="250" y="180" width="170" height="76" class="plant"/>
+  <text x="294" y="214" class="label">microring</text>
+  <text x="275" y="238" class="small">drop / thru plant</text>
+
+  <rect x="470" y="180" width="180" height="76" class="plant"/>
+  <text x="493" y="214" class="label">photodetector</text>
+  <text x="500" y="238" class="small">optical to analog</text>
+
+  <rect x="700" y="180" width="110" height="76" class="plant"/>
+  <text x="737" y="214" class="label">adc</text>
+  <text x="722" y="238" class="small">analog to dig</text>
+
+  <rect x="860" y="180" width="170" height="76" class="logic"/>
+  <text x="898" y="214" class="label">tuner_phy</text>
+  <text x="891" y="238" class="small">compute tune code</text>
+
+  <rect x="1080" y="180" width="80" height="76" class="plant"/>
+  <text x="1106" y="214" class="label">dac</text>
+  <text x="1089" y="238" class="small">dig to ana</text>
+
+  <path d="M 200 218 L 250 218" class="arrowNew"/>
+  <path d="M 420 218 L 470 218" class="arrowNew"/>
+  <path d="M 650 218 L 700 218" class="arrowNew"/>
+  <path d="M 810 218 L 860 218" class="arrowNew"/>
+  <path d="M 1030 218 L 1080 218" class="arrowNew"/>
+  <path d="M 1120 256 C 1120 330, 335 330, 335 256" class="arrowDash"/>
+
+  <text x="1080" y="300" class="small">analog tune drives ring</text>
+  <text x="445" y="352" class="note">Measurement path: ring -> detector -> ADC -> digital power into the controller.</text>
+
+  <text x="70" y="420" class="subtitle">Controller Stack</text>
+
+  <rect x="260" y="455" width="180" height="84" class="logic"/>
+  <text x="283" y="490" class="label">tuner_search_phy</text>
+  <text x="296" y="514" class="small">search session FSM</text>
+
+  <rect x="260" y="570" width="180" height="84" class="logic"/>
+  <text x="295" y="605" class="label">tuner_lock_phy</text>
+  <text x="280" y="629" class="small">lock session FSM</text>
+
+  <rect x="560" y="455" width="190" height="84" class="shared"/>
+  <text x="574" y="490" class="label">tuner_ctrl_txn_adapter</text>
+  <text x="585" y="514" class="small">txn -> arbiter handshake</text>
+
+  <rect x="560" y="570" width="190" height="84" class="shared"/>
+  <text x="574" y="605" class="label">tuner_ctrl_txn_adapter</text>
+  <text x="585" y="629" class="small">txn -> arbiter handshake</text>
+
+  <rect x="850" y="570" width="130" height="84" class="shared"/>
+  <text x="863" y="605" class="label">tuner_ctrl_arb_phy</text>
+  <text x="868" y="629" class="small">sync / commit</text>
+
+  <path d="M 120 497 L 260 497" class="arrowNew"/>
+  <path d="M 120 612 L 260 612" class="arrowNew"/>
+  <path d="M 440 497 L 560 497" class="arrowNew"/>
+  <path d="M 440 612 L 560 612" class="arrowNew"/>
+  <path d="M 750 612 L 850 612" class="arrowNew"/>
+  <path d="M 915 539 L 915 570" class="arrowNew"/>
+
+  <path d="M 750 475 C 790 475, 790 610, 750 610" class="arrowGray"/>
+  <text x="132" y="482" class="ifaceLabel">tuner_search_if</text>
+  <text x="135" y="505" class="small">trigger / done / peaks</text>
+  <text x="145" y="597" class="ifaceLabel">tuner_lock_if</text>
+  <text x="128" y="620" class="small">trigger / intr / resume</text>
+  <text x="478" y="482" class="ifaceLabel">tuner_txn_if</text>
+  <text x="444" y="505" class="small">session start / active / step</text>
+  <text x="478" y="597" class="ifaceLabel">tuner_txn_if</text>
+  <text x="444" y="620" class="small">session start / active / step</text>
+  <text x="760" y="468" class="ifaceLabel">tuner_ctrl_arb_if</text>
+  <text x="775" y="491" class="small">shared session owner</text>
+  <text x="730" y="688" class="small">shared control path to tuner/AFE and power detect</text>
+
+  <rect x="70" y="700" width="1090" height="70" class="panel"/>
+  <text x="95" y="730" class="note">Ownership rule:</text>
+  <text x="215" y="730" class="note">`ctrl_refresh` starts a session, `ctrl_active` holds ownership for that session, and the last valid tune stays live until the next real tune fire.</text>
+  <text x="95" y="754" class="note">Result: search and lock do not interleave control of the same plant step-by-step; handshakes advance steps inside an already-owned session.</text>
+</svg>

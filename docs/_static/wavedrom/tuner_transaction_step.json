@@ -1,0 +1,28 @@
+{
+  "config": {
+    "hscale": 2
+  },
+  "head": {
+    "text": "One Tune / Measure Transaction"
+  },
+  "signal": [
+    { "name": "clk", "wave": "p........." },
+    { "name": "val", "wave": "0.1......0", "node": "..a.....d" },
+    { "name": "tune_code", "wave": "x.=......x", "data": ["0x200"] },
+    { "name": "meas_power", "wave": "x.......=x", "data": ["997"] },
+    { "name": "rdy", "wave": "0.......10", "node": "........c" },
+    { "name": "fire()", "wave": "0.......10", "node": "........e" },
+    { "name": "adapter_state", "wave": "x.3.4..5.3", "data": ["IDLE", "W_TUNE", "W_COMMIT", "RESP", "IDLE"] },
+    { "name": "ctrl_refresh", "wave": "0........." },
+    { "name": "tune_val", "wave": "0..10.....", "node": "...b....." },
+    { "name": "tune_rdy", "wave": "0...10...." },
+    { "name": "arb_state", "wave": "x..3.4.5.3", "data": ["IDLE", "TUNE", "SYNC", "COMMIT", "IDLE"] },
+    { "name": "commit_rdy", "wave": "0....1....0" },
+    { "name": "commit_val", "wave": "0......10.." }
+  ],
+  "edge": [
+    "a->b val -> tune phase",
+    "b->c tune ack -> commit",
+    "c->e fire"
+  ]
+}
