@@ -13,6 +13,7 @@ Welcome to SystemVerilog WDM Simulation's documentation!
    rtl
    simulator
    surfer
+   tuner_handshakes
 
 
 Indices and tables
